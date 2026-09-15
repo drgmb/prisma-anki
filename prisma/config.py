@@ -51,6 +51,13 @@ def save(cfg: Dict[str, Any]) -> None:
     mw.addonManager.writeConfig(ADDON, cfg)
 
 
+def resolve_text_size(cfg: Dict[str, Any], model_name: str) -> int:
+    """Text size in percent for a note type: per-model value when set (non-zero), else the global one."""
+    entry = cfg.get("models", {}).get(model_name, {})
+    size = int(entry.get("textSize") or 0) or int(cfg.get("text", {}).get("sizePct", 100) or 100)
+    return max(50, min(300, size))
+
+
 def resolve_model(cfg: Dict[str, Any], model_name: str) -> Tuple[bool, Dict[str, bool]]:
     """Return (enabled, features) for a note type, merging global defaults with per-model overrides."""
     entry = cfg.get("models", {}).get(model_name, {})

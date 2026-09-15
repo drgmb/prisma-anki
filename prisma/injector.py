@@ -39,9 +39,10 @@ _JS = _read("prisma.js")
 _CSS = _read("prisma.css")
 
 
-def _payload(cfg: Dict[str, Any], features: Dict[str, bool], side: str) -> Dict[str, Any]:
+def _payload(cfg: Dict[str, Any], features: Dict[str, bool], side: str, text_size: int = 100) -> Dict[str, Any]:
     return {
         "features": features,
+        "textSizePct": text_size,
         "speech": cfg.get("speech", {}),
         "layout": cfg.get("layout", {}),
         "side": side,
@@ -84,7 +85,7 @@ def on_card_will_show(text: str, card, kind: str) -> str:
     if not enabled:
         return text + _CANCEL_SPEECH
 
-    payload = json.dumps(_payload(cfg, features, side), ensure_ascii=False)
+    payload = json.dumps(_payload(cfg, features, side, config.resolve_text_size(cfg, name)), ensure_ascii=False)
     return (
         text
         + "<!-- Prisma by drgmb · https://github.com/drgmb -->"

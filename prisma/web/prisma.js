@@ -40,7 +40,9 @@
   var root = document.getElementById("qa") || document.body;
   if (!root) return;
   var needsWords = on.speak || on.bionic || on.beeline;
-  if (!needsWords && !on.layout) return;
+  var sizePct = +cfg.textSizePct; if (isNaN(sizePct) || sizePct <= 0) sizePct = 100;
+  var textBase = Math.min(3, Math.max(0.5, sizePct / 100)); // 1 = template size
+  if (!needsWords && !on.layout && textBase === 1) return;
 
   // ------------------------------------------------------------ 2. DOM helpers
   var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, BUTTON: 1, SELECT: 1 };
@@ -78,8 +80,9 @@
     s.wordSpacing = rand(0, num(LAYOUT.maxWordSpacingPx, 3)).toFixed(2) + "px";
     s.letterSpacing = rand(0, num(LAYOUT.maxLetterSpacingPx, 1.2)).toFixed(2) + "px";
     s.paddingLeft = rand(0, num(LAYOUT.maxIndentPx, 30)).toFixed(0) + "px";
-    s.fontSize = rand(num(LAYOUT.minFontPct, 95), num(LAYOUT.maxFontPct, 107)).toFixed(1) + "%";
+    s.fontSize = (textBase * rand(num(LAYOUT.minFontPct, 95), num(LAYOUT.maxFontPct, 107))).toFixed(1) + "%";
   }
+  function applyTextSize() { root.style.fontSize = (textBase * 100).toFixed(1) + "%"; }
 
   // ------------------------------------------------------------ 4. word wrapping
   function collectTextNodes() {
@@ -271,6 +274,7 @@
   root.setAttribute("data-prisma-by", AUTHOR);
   root.setAttribute("data-prisma-sig", "ZHJnbWI=");
   if (on.layout) randomizeLayout();
+  else if (textBase !== 1) applyTextSize();
   if (!needsWords) return;
 
   // anti-flash: hide until the customizations are in (layout is still computed)

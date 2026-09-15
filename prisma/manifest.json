@@ -3,5 +3,6 @@
  "name": "Prisma (by drgmb)",
  "mod": 0,
  "author": "drgmb",
- "homepage": "https://github.com/drgmb"
+ "homepage": "https://github.com/drgmb",
+ "version": "1.1.0"
 }

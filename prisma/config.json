@@ -26,6 +26,9 @@
     "delayMs": 350,
     "blankWord": "blank"
   },
+  "text": {
+    "sizePct": 100
+  },
   "layout": {
     "minWidthEm": 24,
     "maxWidthEm": 44,

@@ -48,7 +48,7 @@ class SettingsDialog(QDialog):
         self.model_names: List[str] = sorted(
             (m.name for m in mw.col.models.all_names_and_ids()), key=str.lower
         )
-        self.rows: List[Tuple[str, QCheckBox, QCheckBox, Dict[str, QComboBox]]] = []
+        self.rows: List[Tuple[str, QCheckBox, QCheckBox, QSpinBox, Dict[str, QComboBox]]] = []
         self._build()
 
     # ------------------------------------------------------------ layout
@@ -76,6 +76,7 @@ class SettingsDialog(QDialog):
         col = QVBoxLayout(page)
         col.addWidget(self._group_activation())
         col.addWidget(self._group_features())
+        col.addWidget(self._group_text())
         col.addWidget(self._group_speech())
         col.addStretch()
         return page
@@ -125,6 +126,18 @@ class SettingsDialog(QDialog):
             self.cb_feature[key] = cb
             form.addRow(cb)
         form.addRow(_muted("Highlighting and progressive reveal only happen while Read aloud is on."))
+        return box
+
+    def _group_text(self) -> QGroupBox:
+        box = QGroupBox("Text")
+        form = QFormLayout(box)
+        self.sp_text = QSpinBox()
+        self.sp_text.setRange(50, 300)
+        self.sp_text.setSingleStep(5)
+        self.sp_text.setSuffix(" %")
+        self.sp_text.setValue(int(self.cfg.get("text", {}).get("sizePct", 100) or 100))
+        form.addRow("Text size (100 % = the template's own size):", self.sp_text)
+        form.addRow(_muted("Applies to the whole card. With Random layout on, the random variation is scaled around this value. Each note type can set its own size on the Note types tab."))
         return box
 
     def _group_speech(self) -> QGroupBox:
@@ -189,7 +202,7 @@ class SettingsDialog(QDialog):
         return page
 
     def _models_table(self) -> QTableWidget:
-        headers = ["Note type", "Enabled", "Bake (mobile)"] + [label.split(" ", 1)[1] for _, label in FEATURES]
+        headers = ["Note type", "Enabled", "Bake (mobile)", "Text size"] + [label.split(" ", 1)[1] for _, label in FEATURES]
         table = QTableWidget(len(self.model_names), len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.verticalHeader().setVisible(False)
@@ -213,39 +226,49 @@ class SettingsDialog(QDialog):
             bake.setChecked(bool(entry.get("baked", False)))
             table.setCellWidget(r, 2, _centered(bake))
 
+            size = QSpinBox()
+            size.setRange(0, 300)
+            size.setSingleStep(5)
+            size.setSpecialValueText("Global")
+            size.setSuffix(" %")
+            size.setValue(int(entry.get("textSize") or 0))
+            table.setCellWidget(r, 3, size)
+
             combos: Dict[str, QComboBox] = {}
             overrides = entry.get("features", {})
-            for c, (key, _) in enumerate(FEATURES, start=3):
+            for c, (key, _) in enumerate(FEATURES, start=4):
                 combo = QComboBox()
                 combo.addItems(OVERRIDE_OPTIONS)
                 if key in overrides:
                     combo.setCurrentIndex(1 if overrides[key] else 2)
                 table.setCellWidget(r, c, combo)
                 combos[key] = combo
-            self.rows.append((name, cb, bake, combos))
+            self.rows.append((name, cb, bake, size, combos))
         self.table = table
         return table
 
     # ------------------------------------------------------------ actions
     def _set_visible(self, value: bool) -> None:
-        for r, (_, cb, _, _) in enumerate(self.rows):
+        for r, (_, cb, _, _, _) in enumerate(self.rows):
             if not self.table.isRowHidden(r):
                 cb.setChecked(value)
 
     def _apply_filter(self, text: str) -> None:
         needle = text.lower().strip()
-        for r, (name, _, _, _) in enumerate(self.rows):
+        for r, (name, _, _, _, _) in enumerate(self.rows):
             self.table.setRowHidden(r, bool(needle) and needle not in name.lower())
 
     def _collect_models(self, default_enabled: bool) -> Dict[str, Any]:
         """Store only what differs from the defaults, so the config stays small."""
         models: Dict[str, Any] = {}
-        for name, cb, bake, combos in self.rows:
+        for name, cb, bake, size, combos in self.rows:
             entry: Dict[str, Any] = {}
             if cb.isChecked() != default_enabled:
                 entry["enabled"] = cb.isChecked()
             if bake.isChecked():
                 entry["baked"] = True
+            if size.value():
+                entry["textSize"] = size.value()
             overrides = {k: (c.currentIndex() == 1) for k, c in combos.items() if c.currentIndex() != 0}
             if overrides:
                 entry["features"] = overrides
@@ -269,6 +292,7 @@ class SettingsDialog(QDialog):
             "blankWord": self.le_blank.text().strip() or "blank",
             "delayMs": self.sp_delay.value(),
         })
+        cfg["text"] = {"sizePct": self.sp_text.value()}
         cfg["defaultModelEnabled"] = self.cb_default.isChecked()
         cfg["models"] = self._collect_models(cfg["defaultModelEnabled"])
         config.save(cfg)

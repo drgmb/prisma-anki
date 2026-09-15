@@ -43,10 +43,11 @@ def _read(name: str) -> str:
         return fh.read()
 
 
-def build_block(cfg: Dict[str, Any], features: Dict[str, bool], side: str) -> str:
+def build_block(cfg: Dict[str, Any], features: Dict[str, bool], side: str, text_size: int = 100) -> str:
     """The same payload the runtime injector uses, frozen into template text."""
     payload = {
         "features": features,
+        "textSizePct": text_size,
         "speech": cfg.get("speech", {}),
         "layout": cfg.get("layout", {}),
         "side": side,
@@ -80,14 +81,14 @@ def is_baked(text: str) -> bool:
     return "<!--prisma:start" in text or "<!--prisma:marker-start" in text
 
 
-def apply_to_templates(qfmt: str, afmt: str, cfg: Dict[str, Any], features: Dict[str, bool]) -> Tuple[str, str]:
+def apply_to_templates(qfmt: str, afmt: str, cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100) -> Tuple[str, str]:
     """Pure function: returns the new (front, back) template texts."""
     qfmt, afmt = strip(qfmt).rstrip("\n"), strip(afmt).rstrip("\n")
     if cfg.get("applyOn", {}).get("question", True):
-        qfmt = qfmt + "\n" + build_block(cfg, features, "question") + "\n"
+        qfmt = qfmt + "\n" + build_block(cfg, features, "question", text_size) + "\n"
     afmt = MARKER + "\n" + afmt
     if cfg.get("applyOn", {}).get("answer", False):
-        afmt = afmt + "\n" + build_block(cfg, features, "answer") + "\n"
+        afmt = afmt + "\n" + build_block(cfg, features, "answer", text_size) + "\n"
     return qfmt, afmt
 
 
@@ -101,8 +102,9 @@ def bake(name: str, cfg: Dict[str, Any]) -> bool:
     if not model:
         return False
     _, features = config.resolve_model(cfg, name)
+    text_size = config.resolve_text_size(cfg, name)
     for tmpl in model["tmpls"]:
-        tmpl["qfmt"], tmpl["afmt"] = apply_to_templates(tmpl["qfmt"], tmpl["afmt"], cfg, features)
+        tmpl["qfmt"], tmpl["afmt"] = apply_to_templates(tmpl["qfmt"], tmpl["afmt"], cfg, features, text_size)
     mw.col.models.update_dict(model)
     return True
 

@@ -15,6 +15,8 @@ An Anki desktop add-on that makes reading cards more active, on any note type yo
 | 🎤 | **Spoken-word highlight** | Karaoke style: the word being read lights up in amber. |
 | 👁 | **Progressive reveal** | The text appears word by word, in time with the speech. |
 
+| 🔠 | **Text size** | Scale the whole card's text from 50 % to 300 %, globally or per note type. Works together with Random layout. |
+
 Everything can be turned on or off globally and overridden per note type.
 
 ## Two ways to apply it
@@ -39,12 +41,13 @@ The block sits between `<!--prisma:start-->` and `<!--prisma:end-->` at the end 
 - **General**
   - Enable/disable the add-on; apply to the front and/or the back.
   - Where to apply: reviewer, card previewer, template editor.
-  - Global default for each feature.
+  - Global default for each feature, and the text size in percent.
   - Speech: speed, pitch, language (`en-US`, `pt-BR`…), voice name, how to read a cloze `[...]`, initial delay.
   - Shortcut to toggle the add-on during review (default `Ctrl+Shift+L`; it is not shown in the menu).
 - **Note types**
   - An "Enabled" box per note type, a name filter, and buttons to check/uncheck the visible rows.
   - For each feature, `Global` / `On` / `Off` per note type. Example: gradient everywhere, speech only on the English deck.
+  - A text-size box per note type (`Global` or a percent), handy for dense decks or small screens.
 
 The same options exist as JSON under **Tools → Add-ons → Config** (documented there).
 
