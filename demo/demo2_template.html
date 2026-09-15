@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Prisma — feature showcase</title>
+<style>
+  :root { --bg1: #0f1218; --bg2: #1b2130; --amber: rgba(255,193,7,.55); --accent: #4f8cf0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: var(--bg1);
+    font-family: -apple-system, "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif; color: #fff; }
+  #stage { position: relative; width: 1280px; height: 720px; background: radial-gradient(1200px 700px at 30% 20%, #26304a 0%, var(--bg2) 45%, var(--bg1) 100%); }
+  .glow { position: absolute; width: 900px; height: 900px; border-radius: 50%; filter: blur(120px); opacity: .35; pointer-events: none; }
+  .g1 { background: #4f8cf0; left: -300px; top: -400px; } .g2 { background: #f0b34f; right: -350px; bottom: -450px; }
+
+  /* ---- title / end ---- */
+  #title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #logo { display: flex; align-items: center; gap: 26px; } #logo svg { width: 120px; height: 120px; }
+  #wordmark { font-size: 96px; font-weight: 800; letter-spacing: -2px; background: linear-gradient(90deg, #ff6b6b, #f7c948, #6bcf7f, #4f8cf0, #b06bf0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #tagline { margin-top: 14px; font-size: 26px; color: #c7d0dd; font-weight: 500; }
+  #chips { display: flex; gap: 12px; margin-top: 40px; }
+  .chip { padding: 9px 16px; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: 17px; font-weight: 600; }
+  #end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+  #end .big { font-size: 64px; font-weight: 800; } #end .sm { font-size: 22px; color: #c7d0dd; }
+  #end .k { font-family: "SF Mono", Menlo, monospace; background: rgba(255,255,255,.1); padding: 6px 14px; border-radius: 8px; }
+
+  /* ---- Anki desktop window ---- */
+  #win { position: absolute; left: 140px; top: 60px; width: 1000px; height: 580px; border-radius: 12px; overflow: hidden; transform-origin: 0 50%;
+    background: #f5f5f5; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.35); color: #1c2430; }
+  #tb { height: 34px; background: linear-gradient(#ececec, #dcdcdc); border-bottom: 1px solid #b9b9b9; display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+  #tb .dot { width: 12px; height: 12px; border-radius: 50%; }
+  #tb .t { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; color: #444; font-weight: 600; pointer-events: none; }
+  #menu { height: 36px; background: #f0f0f0; border-bottom: 1px solid #d0d0d0; display: flex; align-items: center; justify-content: center; gap: 30px; font-size: 15px; color: #1a1a1a; }
+  #menu span { padding: 4px 6px; } #menu span.on { color: #0a5bd1; }
+  #qa { position: absolute; left: 0; right: 0; top: 70px; bottom: 70px; background: #fff; overflow: hidden; }
+  .card { font-family: Arial, Helvetica, sans-serif; font-size: 21px; line-height: 1.55; color: #222; padding: 26px 34px 0; text-align: center; }
+  .card .cloze { font-weight: bold; color: #0a74ff; }
+  .card .mnemonics { display: inline-block; text-align: left; margin-top: 6px; }
+  .card .mnemonics div { line-height: 1.5; }
+  .card hr { border: 0; border-top: 1px solid #d4d4d4; margin: 16px 0 12px; }
+  .card .extra-lbl { font-size: 13px; font-weight: 700; color: #777; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+  .card .extra { font-size: 16.5px; color: #333; }
+  #qaB.card { font-size: 18.5px; line-height: 1.4; padding-top: 18px; }
+  #qaB .mnemonics div { line-height: 1.3; }
+  #qaB hr { margin: 10px 0 8px; }
+  #qaB .hints { margin-top: 9px; } #qaB .tags { margin-top: 9px; }
+  .card .hints { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+  .card .hint { font-size: 14px; padding: 5px 12px; border-radius: 6px; background: #eef0f3; border: 1px solid #d5d9e0; color: #444; }
+  .card .hint.on { background: #e8f1ff; border-color: #bcd4f7; color: #0a5bd1; }
+  .card .tags { margin-top: 18px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  .card .tag { font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #f1f1f1; border: 1px solid #ddd; color: #666; }
+  .w { display: inline; border-radius: 4px; padding: 0 1px; }
+  .w .b { font-weight: 800; }
+  .w.hl { background: var(--amber); box-shadow: 0 0 0 1px rgba(255,193,7,.3); }
+  .w.hid { visibility: hidden; }
+  #bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 70px; padding-top: 14px; background: #f0f0f0; border-top: 1px solid #cfcfcf; display: flex; align-items: center; justify-content: center; }
+  #bottom .side { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding: 0 14px; }
+  #bottom .l { left: 0; } #bottom .r { right: 0; }
+  .abtn { font-size: 14px; padding: 7px 18px; border-radius: 6px; border: 1px solid #b9b9b9; background: linear-gradient(#fff, #e9e9e9); color: #222; }
+  .abtn.primary { background: linear-gradient(#5aa0ff, #2b7cf0); border-color: #1d63c9; color: #fff; font-weight: 600; padding: 8px 40px; }
+  .abtn.primary.pressed { background: linear-gradient(#2b7cf0, #1d63c9); transform: translateY(1px); }
+  #ease { display: flex; gap: 8px; align-items: center; }
+  .eb { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .eb small { font-size: 11px; color: #666; }
+  .eb .abtn { padding: 6px 16px; min-width: 76px; text-align: center; }
+  .eb.again .abtn { color: #c0392b; } .eb.hard .abtn { color: #6b6b6b; } .eb.good .abtn { color: #1e8e3e; } .eb.easy .abtn { color: #1a73e8; }
+  #timer { position: absolute; left: 50%; top: 3px; transform: translateX(-50%); font-size: 11px; color: #777; }
+
+  /* ---- phone (AnkiDroid) ---- */
+  #phone { position: absolute; left: 860px; top: 44px; width: 330px; height: 640px; border-radius: 40px; background: #0c0c0e; padding: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 2px #2a2a2e; }
+  #screen { position: relative; width: 100%; height: 100%; border-radius: 30px; overflow: hidden; background: #fff; color: #1c2430; }
+  #notch { position: absolute; left: 50%; top: 10px; width: 90px; height: 24px; border-radius: 14px; background: #0c0c0e; transform: translateX(-50%); z-index: 3; }
+  #pbar { height: 78px; background: #3949ab; color: #fff; display: flex; align-items: flex-end; padding: 0 16px 10px; font-size: 15px; font-weight: 600; gap: 10px; }
+  #pbar .sub { font-size: 12px; font-weight: 400; opacity: .85; display: block; }
+  #pqa { position: absolute; left: 0; right: 0; top: 78px; bottom: 58px; overflow: hidden; background: #fff; }
+  #pqa .card { font-size: 14.5px; padding: 14px 16px 0; line-height: 1.5; }
+  #pqa .card .extra { font-size: 13px; } #pqa .card .hint { font-size: 11px; padding: 3px 8px; } #pqa .card .tag { font-size: 10px; }
+  #pbottom { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; background: #fafafa; border-top: 1px solid #e0e0e0; display: flex; }
+  #pbottom div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  #pbottom small { font-size: 10px; font-weight: 400; color: #777; }
+  #pbottom .again { color: #d32f2f; } #pbottom .hard { color: #616161; } #pbottom .good { color: #388e3c; } #pbottom .easy { color: #1976d2; }
+  #pbadge { position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); padding: 6px 12px; border-radius: 999px; background: rgba(0,0,0,.72); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; z-index: 4; }
+
+  /* ---- caption / speech / settings ---- */
+  #cap { position: absolute; left: 140px; bottom: 22px; display: flex; align-items: center; gap: 14px; }
+  #cap .ic { width: 54px; height: 54px; border-radius: 14px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  #cap .h { font-size: 26px; font-weight: 800; } #cap .s { font-size: 16px; color: #b4bcc9; margin-top: 2px; }
+  #speech { position: absolute; left: 175px; top: 452px; display: flex; align-items: center; gap: 12px; padding: 9px 16px; border-radius: 999px; background: #e7eefb; color: #2c5aa6; font-weight: 700; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+  #speech .bars { display: flex; gap: 3px; align-items: flex-end; height: 18px; } #speech .bars i { width: 4px; background: #2c5aa6; border-radius: 2px; display: block; }
+  #speed { position: absolute; right: 150px; top: 418px; width: 280px; padding: 10px 16px; border-radius: 14px; background: #fff; color: #1c2430; box-shadow: 0 10px 30px rgba(0,0,0,.2); border: 1px solid #dde3ec; }
+  #speed .lbl { font-size: 12px; color: #7b8799; font-weight: 600; display: flex; justify-content: space-between; }
+  #speed .track { position: relative; height: 6px; background: #e3e8f0; border-radius: 3px; margin: 10px 0 2px; }
+  #speed .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 3px; }
+  #speed .knob { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); transform: translate(-50%, -50%); box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+  #speed .val { font-size: 26px; font-weight: 800; color: var(--accent); text-align: right; }
+  #settings { position: absolute; left: 150px; top: 90px; width: 980px; height: 520px; border-radius: 12px; background: #f3f5f9; color: #1c2430; box-shadow: 0 30px 80px rgba(0,0,0,.55); overflow: hidden; }
+  #settings .hd { height: 40px; background: #e6eaf1; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #4b5768; }
+  #settings .tabs { display: flex; gap: 6px; padding: 12px 18px 0; }
+  #settings .tab { padding: 7px 16px; border-radius: 8px 8px 0 0; background: #dde3ec; font-size: 14px; font-weight: 600; color: #7b8799; } #settings .tab.on { background: #fff; color: #1c2430; }
+  #settings table { width: calc(100% - 36px); margin: 0 18px; border-collapse: collapse; background: #fff; font-size: 13.5px; }
+  #settings th { text-align: left; color: #7b8799; font-weight: 600; padding: 9px 10px; border-bottom: 1px solid #e3e8f0; font-size: 12px; }
+  #settings td { padding: 8px 10px; border-bottom: 1px solid #eef1f6; }
+  .sw { display: inline-block; width: 40px; height: 22px; border-radius: 11px; background: #cfd6e2; position: relative; vertical-align: middle; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .sw.on { background: #2f9a4a; } .sw.on::after { left: 21px; }
+  .sel { display: inline-block; padding: 3px 9px; border-radius: 6px; background: #eef1f6; border: 1px solid #dde3ec; font-size: 12px; color: #4b5768; min-width: 58px; text-align: center; }
+  .sel.on { background: #e7eefb; color: #2c5aa6; border-color: #d5e1f7; font-weight: 700; } .sel.off { background: #fdeeed; color: #d64540; border-color: #f5c9c7; font-weight: 700; }
+  #settings .foot { position: absolute; right: 18px; bottom: 12px; font-size: 11px; color: #7b8799; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="glow g1"></div><div class="glow g2"></div>
+
+  <div id="title">
+    <div id="logo">
+      <svg viewBox="0 0 120 120" fill="none"><path d="M60 12 L108 100 H12 Z" stroke="#fff" stroke-width="6" stroke-linejoin="round"/><path d="M8 62 H54" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M70 62 L114 44" stroke="#ff6b6b" stroke-width="6" stroke-linecap="round"/><path d="M70 66 L114 62" stroke="#f7c948" stroke-width="6" stroke-linecap="round"/><path d="M70 70 L114 80" stroke="#6bcf7f" stroke-width="6" stroke-linecap="round"/><path d="M70 74 L114 98" stroke="#4f8cf0" stroke-width="6" stroke-linecap="round"/></svg>
+      <div id="wordmark">Prisma</div>
+    </div>
+    <div id="tagline">Active reading for Anki — desktop and mobile, on any note type</div>
+    <div id="chips"><div class="chip">🌈 Gradient</div><div class="chip">🅱 Bionic</div><div class="chip">🔀 Random layout</div><div class="chip">🔊 Read aloud</div><div class="chip">🎤 Karaoke</div><div class="chip">👁 Reveal</div></div>
+  </div>
+
+  <div id="win">
+    <div id="tb"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="t">Anki — User 1</span></div>
+    <div id="menu"><span>Decks</span><span>Add</span><span>Browse</span><span>Stats</span><span>Sync</span></div>
+    <div id="qa"><div id="qaF" class="card"></div><div id="qaB" class="card"></div></div>
+    <div id="bottom">
+      <div id="timer">0:07</div>
+      <div class="side l"><span class="abtn">Edit</span></div>
+      <span id="showAns" class="abtn primary">Show Answer</span>
+      <div id="ease"><div class="eb again"><small>&lt;10m</small><span class="abtn">Again</span></div><div class="eb hard"><small>4d</small><span class="abtn">Hard</span></div><div class="eb good"><small>10d</small><span class="abtn">Good</span></div><div class="eb easy"><small>1mo</small><span class="abtn">Easy</span></div></div>
+      <div class="side r"><span class="abtn">More</span></div>
+    </div>
+  </div>
+
+  <div id="phone"><div id="screen"><div id="notch"></div>
+    <div id="pbar"><span>🦉</span><span>AnkiDroid<span class="sub">AnKing Step Deck · Psychiatry</span></span></div>
+    <div id="pqa"><div id="qaP" class="card"></div></div>
+    <div id="pbottom"><div class="again">AGAIN<small>&lt;10m</small></div><div class="hard">HARD<small>4d</small></div><div class="good">GOOD<small>10d</small></div><div class="easy">EASY<small>1mo</small></div></div>
+    <div id="pbadge">🧩 baked into the template · no add-on needed</div>
+  </div></div>
+
+  <div id="speech"><span>🔊</span><span class="bars"><i></i><i></i><i></i><i></i><i></i></span><span id="speechLbl">Read aloud · 1.00×</span></div>
+  <div id="speed"><div class="lbl"><span>SPEECH SPEED</span><span>0.5× — 2×</span></div><div class="track"><div class="fill"></div><div class="knob"></div></div><div class="val">1.00×</div></div>
+
+  <div id="settings">
+    <div class="hd">Prisma — Settings · by drgmb</div>
+    <div class="tabs"><div class="tab">General</div><div class="tab on">Note types</div></div>
+    <table><thead><tr><th>Note type</th><th>Enabled</th><th>Bake (mobile)</th><th>Read aloud</th><th>Karaoke</th><th>Random layout</th><th>Bionic</th><th>Gradient</th></tr></thead><tbody id="rows"></tbody></table>
+    <div class="foot">Prisma by drgmb · github.com/drgmb</div>
+  </div>
+
+  <div id="cap"><div class="ic"></div><div><div class="h"></div><div class="s"></div></div></div>
+  <div id="end"><div class="big">Prisma</div><div class="sm">Tools → <span class="k">Prisma…</span> · toggle with <span class="k">Ctrl+Shift+L</span></div><div class="sm" style="opacity:.7">prisma.ankiaddon · by drgmb · github.com/drgmb</div></div>
+</div>
+
+<script>
+var CARD = __CARD_JSON__;
+
+// ------------------------------------------------------------------ card DOM
+function cardHtml(side) {
+  var body = side === "front" ? CARD.front : CARD.back;
+  var h = body;
+  if (side === "back") {
+    h += '<hr><div class="extra-lbl">Extra</div><div class="extra">' + CARD.extra + '</div>';
+    h += '<div class="hints"><span class="hint on">Pathoma</span><span class="hint">Boards &amp; Beyond</span><span class="hint">First Aid</span><span class="hint">Sketchy</span><span class="hint">Additional Resources</span></div>';
+  }
+  h += '<div class="tags">' + CARD.tags.map(function (t) { return '<span class="tag">' + t + '</span>'; }).join("") + '</div>';
+  return h;
+}
+function wrapWords(root) {
+  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false), nodes = [];
+  while (walker.nextNode()) { var n = walker.currentNode; if (/\S/.test(n.nodeValue) && !n.parentElement.closest(".tags,.hints")) nodes.push(n); }
+  var spans = [];
+  nodes.forEach(function (node) {
+    var colored = !!node.parentElement.closest(".cloze");
+    var frag = document.createDocumentFragment();
+    node.nodeValue.split(/(\s+)/).forEach(function (w) {
+      if (!w) return;
+      if (!w.trim()) { frag.appendChild(document.createTextNode(w)); return; }
+      var s = document.createElement("span"); s.className = "w"; if (colored) s.dataset.skip = "1";
+      var n = Math.min(w.length, Math.max(1, Math.ceil(w.length * 0.4)));
+      var b = document.createElement("span"); b.className = "b"; b.textContent = w.slice(0, n); b.style.fontWeight = "400";
+      s.appendChild(b); s.appendChild(document.createTextNode(w.slice(n)));
+      frag.appendChild(s); spans.push(s);
+    });
+    node.parentNode.replaceChild(frag, node);
+  });
+  return spans;
+}
+function makeView(id, side) {
+  var root = document.getElementById(id);
+  root.innerHTML = cardHtml(side);
+  var spans = wrapWords(root);
+  return { root: root, spans: spans, bold: spans.map(function (s) { return s.querySelector(".b"); }), words: spans.map(function (s) { return s.textContent; }) };
+}
+var VF = makeView("qaF", "front"), VB = makeView("qaB", "back"), VP = makeView("qaP", "front");
+
+// ------------------------------------------------------------------ helpers
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+function ease(t) { t = clamp(t, 0, 1); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function show(el, on) { el.style.display = on ? "" : "none"; }
+function hslToRgb(h, s, l) { s /= 100; l /= 100; var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;
+  var rgb = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return rgb.map(function (v) { return Math.round((v + m) * 255); }); }
+function mix(a, b, t) { return "rgb(" + [0, 1, 2].map(function (i) { return Math.round(a[i] + (b[i] - a[i]) * t); }).join(",") + ")"; }
+var BASE = [34, 34, 34];
+var PAL = [BASE, hslToRgb(210, 80, 34), BASE, hslToRgb(28, 85, 36)];
+var PAL2 = [BASE, hslToRgb(285, 70, 36), BASE, hslToRgb(150, 70, 28)];
+
+function reset(v) { v.spans.forEach(function (s, i) { s.className = "w"; s.style.color = ""; v.bold[i].style.fontWeight = "400"; }); }
+function groupLines(v) { var lines = [], line = [], last = null;
+  v.spans.forEach(function (s, i) { if (s.dataset.skip) return; var top = s.getBoundingClientRect().top; if (last !== null && Math.abs(top - last) >= 2) { lines.push(line); line = []; } line.push(i); last = top; });
+  if (line.length) lines.push(line); return lines; }
+function bionic(v, p) { v.spans.forEach(function (s, i) { v.bold[i].style.fontWeight = (p === true || ease((p - i * 40) / 220) > .5) ? "800" : "400"; }); }
+function beeline(v, pal, p) { // p: true = all, or ms progress for sweep
+  groupLines(v).forEach(function (line, li) { var from = pal[li % 4], to = pal[(li + 1) % 4], n = line.length;
+    line.forEach(function (wi, i) { var at = 400 + li * 380 + (i / n) * 300; var q = p === true ? 1 : ease((p - at) / 200);
+      v.spans[wi].style.color = q <= 0 ? "" : mix(from, to, n > 1 ? i / (n - 1) : 0); }); }); }
+function karaoke(v, idx) { if (idx >= 0 && idx < v.spans.length) v.spans[idx].classList.add("hl"); }
+function reveal(v, idx) { v.spans.forEach(function (s, i) { s.classList.toggle("hid", i > idx); if (i === idx) s.classList.add("hl"); }); }
+
+// layouts
+var L0 = { w: 900, ls: 0, ws: 0, fs: 21, align: "center", pad: 0 }, L0B = { w: 920, ls: 0, ws: 0, fs: 18.5, align: "center", pad: 0 };
+var LAYOUTS = [L0, { w: 640, ls: 0.9, ws: 2.2, fs: 20, align: "left", pad: 20 }, { w: 920, ls: 0.3, ws: 0.8, fs: 19.5, align: "justify", pad: 8 }, { w: 740, ls: 0.6, ws: 1.5, fs: 21.5, align: "left", pad: 0 }];
+function applyLayout(v, L) { var r = v.root; r.style.maxWidth = L.w + "px"; r.style.margin = "0 auto"; r.style.letterSpacing = L.ls + "px"; r.style.wordSpacing = L.ws + "px"; r.style.fontSize = L.fs + "px"; r.style.textAlign = L.align; r.style.paddingLeft = (34 + L.pad) + "px"; }
+function tweenLayout(v, A, B, t) { var e = ease(t); applyLayout(v, { w: lerp(A.w, B.w, e), ls: lerp(A.ls, B.ls, e), ws: lerp(A.ws, B.ws, e), fs: lerp(A.fs, B.fs, e), align: t < .5 ? A.align : B.align, pad: lerp(A.pad, B.pad, e) }); }
+
+// speech schedules
+function speedAt(t) { if (t < 4200) return 1.0; if (t < 5000) return lerp(1.0, 0.75, (t - 4200) / 800); if (t < 7600) return 0.75; if (t < 8400) return lerp(0.75, 1.6, (t - 7600) / 800); return 1.6; }
+function schedule(words, start, rateFn) { var t = start, out = []; words.forEach(function (w) { var d = (140 + 32 * w.replace(/[^A-Za-z0-9]/g, "").length) / rateFn(t); out.push([t, t + d]); t += d; }); return out; }
+function wordAt(sch, t) { for (var i = 0; i < sch.length; i++) if (t >= sch[i][0] && t < sch[i][1]) return i; return -1; }
+var SCH_F = schedule(VF.words, 600, speedAt), SCH_B = schedule(VB.words, 900, function () { return 1.15; }), SCH_P = schedule(VP.words, 1200, function () { return 1.1; });
+
+// settings rows
+var ROWS = [["AnKingOverhaul", 1, 1, "Global", "Global", "Off", "Global", "Global"], ["Basic", 1, 0, "Global", "Global", "Global", "Global", "Global"], ["Cloze", 1, 1, "Off", "Global", "Global", "On", "Global"], ["EN Clinico - Cloze Digitavel", 0, 0, "Global", "Global", "Global", "Global", "Global"], ["Image Occlusion Enhanced", 0, 0, "Global", "Global", "Off", "Off", "Global"], ["Phrasal Verbs", 1, 1, "On", "On", "Global", "Global", "Global"]];
+var rowsEl = document.getElementById("rows"), switches = [], sels = [];
+ROWS.forEach(function (r) { var tr = document.createElement("tr");
+  tr.innerHTML = "<td>" + r[0] + "</td><td><span class='sw'></span></td><td><span class='sw bake'></span></td>" + r.slice(3).map(function (v) { return "<td><span class='sel'>" + v + "</span></td>"; }).join("");
+  rowsEl.appendChild(tr); switches.push({ en: tr.querySelector(".sw:not(.bake)"), bk: tr.querySelector(".sw.bake"), on: !!r[1], bake: !!r[2] });
+  sels.push(Array.from(tr.querySelectorAll(".sel")).map(function (el, i) { return { el: el, v: r[3 + i] }; })); });
+
+// ------------------------------------------------------------------ scenes
+var S = { title: [0, 3500], plain: [3500, 7500], layout: [7500, 13000], bionic: [13000, 17000], beeline: [17000, 23000], speech: [23000, 35000], reveal: [35000, 39500], back: [39500, 47000], phone: [47000, 55500], settings: [55500, 61500], end: [61500, 65000] };
+var TOTAL = S.end[1];
+var el = {}; ["title", "win", "phone", "cap", "speech", "speed", "settings", "end", "qaF", "qaB", "showAns", "ease", "speechLbl", "timer"].forEach(function (k) { el[k] = document.getElementById(k); });
+el.capIc = document.querySelector("#cap .ic"); el.capH = document.querySelector("#cap .h"); el.capS = document.querySelector("#cap .s");
+el.fill = document.querySelector("#speed .fill"); el.knob = document.querySelector("#speed .knob"); el.val = document.querySelector("#speed .val");
+el.chips = Array.from(document.querySelectorAll(".chip")); el.bars = Array.from(document.querySelectorAll("#speech .bars i"));
+
+function caption(ic, h, s, t) { show(el.cap, true); el.capIc.textContent = ic; el.capH.textContent = h; el.capS.textContent = s;
+  el.cap.style.opacity = ease(t * 8) * (1 - ease((t - 0.9) * 10)); el.cap.style.transform = "translateY(" + (1 - ease(t * 8)) * 18 + "px)"; }
+function winAt(x, y, scale, opacity) { show(el.win, true); el.win.style.transform = "translate(" + x + "px," + y + "px) scale(" + scale + ")"; el.win.style.opacity = opacity; }
+function side(back) { show(el.qaF, !back); show(el.qaB, back); show(el.showAns, !back); show(el.ease, back); }
+function speechUI(st, on) { show(el.speech, on); show(el.speed, on); if (!on) return; var sp = speedAt(st);
+  el.speechLbl.textContent = "Read aloud · " + sp.toFixed(2) + "×"; el.val.textContent = sp.toFixed(2) + "×";
+  var pct = (sp - 0.5) / 1.5 * 100; el.fill.style.width = pct + "%"; el.knob.style.left = pct + "%";
+  el.bars.forEach(function (b, i) { b.style.height = (6 + 10 * Math.abs(Math.sin(st / (90 / sp) + i * 1.3))) + "px"; });
+  el.speech.style.opacity = ease(st / 400); el.speed.style.opacity = ease((st - 300) / 400); el.speed.style.transform = "translateY(" + (1 - ease((st - 300) / 400)) * 12 + "px)"; }
+
+function render(t) {
+  [el.title, el.win, el.phone, el.cap, el.speech, el.speed, el.settings, el.end].forEach(function (x) { show(x, false); });
+  reset(VF); reset(VB); reset(VP); applyLayout(VF, L0); applyLayout(VB, L0B); side(false); el.showAns.classList.remove("pressed");
+  el.timer.textContent = "0:" + String(Math.floor(t / 1000) % 60).padStart(2, "0");
+
+  if (t < S.title[1]) { show(el.title, true); var p = t / 1000; el.title.style.opacity = ease(p / .6) * (1 - ease((t - S.title[1] + 500) / 500));
+    document.getElementById("logo").style.transform = "scale(" + lerp(.85, 1, ease(p / .8)) + ")";
+    el.chips.forEach(function (c, i) { var q = ease((p - 1.0 - i * .12) / .45); c.style.opacity = q; c.style.transform = "translateY(" + (1 - q) * 16 + "px)"; }); return; }
+  if (t >= S.end[0]) { show(el.end, true); el.end.style.opacity = ease((t - S.end[0]) / 600); return; }
+  if (t >= S.settings[0]) { show(el.settings, true); var p2 = (t - S.settings[0]) / 1000;
+    el.settings.style.opacity = ease(p2 / .5) * (1 - ease((t - S.settings[1] + 500) / 500)); el.settings.style.transform = "translateY(" + (1 - ease(p2 / .5)) * 30 + "px)";
+    switches.forEach(function (sw, i) { sw.en.className = "sw" + (sw.on && p2 > 1.0 + i * .2 ? " on" : ""); sw.bk.className = "sw bake" + (sw.bake && p2 > 2.4 + i * .2 ? " on" : ""); });
+    sels.forEach(function (row, i) { row.forEach(function (c, j) { var on = p2 > 3.6 + i * .15 + j * .05; c.el.className = "sel" + (on && c.v === "On" ? " on" : on && c.v === "Off" ? " off" : ""); }); });
+    caption("⚙️", "Per note type · Enabled + Bake", "Global / On / Off for every feature — bake writes it into the template for mobile", (t - S.settings[0]) / (S.settings[1] - S.settings[0])); return; }
+
+  // ---- desktop scenes
+  var enter = ease((t - S.plain[0]) / 700);
+  winAt(0, (1 - enter) * 40, lerp(.96, 1, enter), enter);
+
+  if (t < S.plain[1]) { caption("🃏", "A real AnKing card, untouched", "Cloze note from the AnKing Step Deck — front side", (t - S.plain[0]) / (S.plain[1] - S.plain[0])); return; }
+  if (t < S.layout[1]) { var lt = t - S.layout[0], seg = 1350, k = Math.floor(lt / seg), f = (lt % seg) / seg;
+    var A = LAYOUTS[k % 4], B = LAYOUTS[(k + 1) % 4]; if (f < .35) applyLayout(VF, A); else tweenLayout(VF, A, B, Math.min(1, (f - .35) / .4));
+    caption("🔀", "Random layout", "Width, alignment, spacing and size change on every showing", lt / (S.layout[1] - S.layout[0])); return; }
+  if (t < S.bionic[1]) { bionic(VF, t - S.bionic[0] - 300); caption("🅱", "Bionic reading", "The start of each word is bold, anchoring your eye", (t - S.bionic[0]) / 4000); return; }
+  if (t < S.beeline[1]) { bionic(VF, true); beeline(VF, PAL, t - S.beeline[0]); caption("🌈", "BeeLine gradient", "Each line fades into the next color — your eye never loses the line break", (t - S.beeline[0]) / 6000); return; }
+  if (t < S.speech[1]) { var st = t - S.speech[0]; bionic(VF, true); beeline(VF, PAL, true); karaoke(VF, wordAt(SCH_F, st)); speechUI(st, true);
+    var sub = st < 4200 ? "Speech synthesis reads the card; the spoken word lights up" : st < 7800 ? "Slow it down to 0.75× for hard passages…" : "…or speed it up to 1.6× for review";
+    caption("🎤", "Read aloud + karaoke highlight", sub, st / 12000); return; }
+  if (t < S.reveal[1]) { var rt = t - S.reveal[0]; bionic(VF, true); reveal(VF, Math.floor((rt - 500) / 85)); caption("👁", "Progressive reveal", "Words appear one by one, in time with the speech", rt / 4500); return; }
+  if (t < S.back[1]) { var bt = t - S.back[0];
+    if (bt < 450) { el.showAns.classList.toggle("pressed", bt > 150); bionic(VF, true); beeline(VF, PAL, true); }
+    else { side(true); bionic(VB, true); beeline(VB, PAL2, true); karaoke(VB, wordAt(SCH_B, bt - 450)); }
+    caption("🔁", "Back side — everything on", "Gradient, bionic, karaoke: clozes revealed, Extra and resources included", bt / (S.back[1] - S.back[0])); return; }
+  if (t < S.phone[1]) { var pt = t - S.phone[0], e1 = ease(pt / 900);
+    side(true); bionic(VB, true); beeline(VB, PAL2, true); karaoke(VB, wordAt(SCH_B, 4000 + pt));
+    winAt(lerp(0, -95, e1), lerp(0, 60, e1), lerp(1, .68, e1), 1);
+    show(el.phone, true); var e2 = ease((pt - 300) / 900); el.phone.style.transform = "translateX(" + (1 - e2) * 520 + "px)"; el.phone.style.opacity = e2;
+    applyLayout(VP, { w: 330, ls: 0.2, ws: 0.6, fs: 14.5, align: "left", pad: -18 }); bionic(VP, true); beeline(VP, PAL, true); karaoke(VP, wordAt(SCH_P, pt));
+    caption("📱", "Same features on your phone", "Bake mode writes the preset into the note type — syncs to AnkiDroid and AnkiMobile", pt / (S.phone[1] - S.phone[0])); return; }
+}
+window.render = render; window.TOTAL = TOTAL; render(0);
+</script>
+</body>
+</html>

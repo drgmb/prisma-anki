@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+demo/frames/
+demo/preview/
+prisma/meta.json

@@ -1,0 +1,43 @@
+{
+  "_author": "drgmb · https://github.com/drgmb",
+  "enabled": true,
+  "applyOn": {
+    "question": true,
+    "answer": false
+  },
+  "applyIn": {
+    "review": true,
+    "preview": true,
+    "cardLayout": false
+  },
+  "features": {
+    "speech": false,
+    "karaoke": true,
+    "progressiveReveal": false,
+    "randomLayout": true,
+    "bionic": true,
+    "beeline": true
+  },
+  "speech": {
+    "rate": 1.0,
+    "pitch": 1.0,
+    "lang": "en-US",
+    "voice": "Samantha",
+    "delayMs": 350,
+    "blankWord": "blank"
+  },
+  "layout": {
+    "minWidthEm": 24,
+    "maxWidthEm": 44,
+    "minFontPct": 95,
+    "maxFontPct": 107,
+    "maxWordSpacingPx": 3,
+    "maxLetterSpacingPx": 1.2,
+    "maxIndentPx": 30,
+    "bionicRatio": 0.4
+  },
+  "skipIfTemplateHasOwn": true,
+  "defaultModelEnabled": false,
+  "toggleShortcut": "Ctrl+Shift+L",
+  "models": {}
+}

@@ -1,0 +1,11 @@
+{
+ "front": "<div>Diagnosis of a(n) <span class=\"cloze\">[...]</span> requires an <b><u>elevated and/or irritable mood</u></b> for at least <span class=\"cloze\">[length of time]</span> plus at least <span class=\"cloze\">[#]</span> \"<b>DIG FAST</b>\" criteria:</div><div><div class=\"mnemonics\"><br><div><u>D</u>istractibility</div><div><u>I</u>mpulsivity / <u>I</u>ndiscretion* </div><div><u>G</u>randiosity (inflated self-esteem) </div><br><div><u>F</u>light of ideas (racing thoughts)</div><div><u>A</u>gitation / increased <u>A</u>ctivity </div><div><u>S</u>leeplessness</div><div><u>T</u>alkativeness or pressured speech </div></div></div>",
+ "back": "<div>Diagnosis of a(n) <span class=\"cloze\"><b>manic episode</b></span> requires an <b><u>elevated and/or irritable mood</u></b> for at least <span class=\"cloze\">1 week</span> plus at least <span class=\"cloze\"><b>three</b></span> \"<b>DIG FAST</b>\" criteria:</div><div><div class=\"mnemonics\"><br><div><u>D</u>istractibility</div><div><u>I</u>mpulsivity / <u>I</u>ndiscretion* </div><div><u>G</u>randiosity (inflated self-esteem) </div><br><div><u>F</u>light of ideas (racing thoughts)</div><div><u>A</u>gitation / increased <u>A</u>ctivity </div><div><u>S</u>leeplessness</div><div><u>T</u>alkativeness or pressured speech </div></div></div>",
+ "extra": "*Seeks pleasure without regard to consequences (hedonistic)",
+ "tags": [
+  "#AK_Step1_v12::^Other::Psychiatry",
+  "Zanki_Psychiatry",
+  "^One_By_One"
+ ],
+ "pathoma": "<br><img src=\"paste-255842611888129.jpg\" style=\"\" class=\"resizer\">"
+}

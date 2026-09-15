@@ -1,0 +1,12 @@
+/* Prisma — spoken-word highlight and progressive reveal · by drgmb · https://github.com/drgmb */
+.kw-active {
+  background-color: rgba(255, 193, 7, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 193, 7, 0.25);
+  border-radius: 3px;
+  padding: 0 1px;
+  transition: background-color 0.08s ease;
+}
+.kw-hidden { visibility: hidden; }
+
+/* drgmb */
+[data-prisma-by="drgmb"] { --prisma-author: "drgmb"; }

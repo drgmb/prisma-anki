@@ -1,0 +1,8 @@
+{
+  "name": "prisma-demo",
+  "private": true,
+  "description": "Renders the Prisma showcase video frame by frame with headless Chrome",
+  "dependencies": {
+    "puppeteer-core": "^25.11.0"
+  }
+}
