@@ -32,7 +32,7 @@ _SCRIPT = '<script data-prisma-skip="1" data-prisma-by="drgmb">'
 # of the card (always shown exactly as its template made it), other note types, add-on toggled off… Keep the property list in sync with prisma.js (STYLE_PROPS).
 _RESET = (
     _SCRIPT
-    + "(function(){ if(window.speechSynthesis)speechSynthesis.cancel();"
+    + "(function(){ if(window.speechSynthesis)speechSynthesis.cancel(); window.__PRISMA_REPLAY=null;"
     + "var s=window.__PRISMA_STATE;window.__PRISMA_STATE=null;"
     + "if(s&&s.stop){ try{ s.stop(); }catch(e){ } }"
     + "var props=['maxWidth','marginLeft','marginRight','textAlign','wordSpacing','letterSpacing','paddingLeft','fontSize'];"
@@ -120,9 +120,9 @@ def on_card_will_show(text: str, card, kind: str) -> str:
     if not enabled:
         return text + _RESET
     if side == "answer":
-        # the back is always shown exactly as its template made it: it only gets reading aloud,
-        # and only when asked for (speech.answerRead = "full" re-reads the card, "cloze" reads the answers)
-        if not features.get("speech") or cfg.get("speech", {}).get("answerRead", "off") not in ("full", "cloze"):
+        # the back is always shown exactly as its template made it: it only gets reading aloud — by itself
+        # when speech.answerRead is "full"/"cloze", and on demand through the replay shortcuts
+        if not features.get("speech"):
             return text + _RESET
         data = json.dumps(payload(cfg, features, side="answer"), ensure_ascii=False)
     else:

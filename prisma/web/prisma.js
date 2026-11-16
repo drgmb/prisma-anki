@@ -58,11 +58,16 @@
     if (!on.speak) return;
     on.layout = on.bionic = on.beeline = on.reveal = false;
   }
+  // on the back the speech starts by itself only when speech.answerRead asks for it; otherwise the block
+  // just stands by for the replay shortcuts
+  var autoRead = !backOnly || SPEECH.answerRead === "full" || SPEECH.answerRead === "cloze";
+  if (on.speak) window.__PRISMA_REPLAY = replay; // called by the desktop shortcuts
 
   var needsWords = on.speak || on.bionic || on.beeline || on.karaoke || on.reveal;
+  if (!autoRead) needsWords = false;
   var sizePct = backOnly ? 100 : +cfg.textSizePct; if (isNaN(sizePct) || sizePct <= 0) sizePct = 100;
   var textBase = Math.min(3, Math.max(0.5, sizePct / 100)); // 1 = template size
-  if (!needsWords && !on.layout && textBase === 1) return;
+  if (!needsWords && !on.layout && textBase === 1 && !window.__PRISMA_REPLAY) return; // nothing to do and no replay to serve
 
   // ------------------------------------------------------------ 2. DOM helpers
   var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, BUTTON: 1, SELECT: 1,
@@ -71,11 +76,13 @@
   // (tags-container, prettify-tags, timer, countdown…)
   var NOT_CONTENT = /(^|[^a-z])(tags?|timer|countdown)([^a-z]|$)/i;
   var stops = []; // teardown callbacks for this card
+  var stopSpeech = null; // teardown of the speech in progress (shortcuts replay without touching the rest)
 
   function rand(min, max) { return min + Math.random() * (max - min); }
   function num(v, fallback) { v = +v; return isNaN(v) ? fallback : v; }
 
   function cleanup() {
+    window.__PRISMA_REPLAY = null;
     var prev = window.__PRISMA_STATE;
     window.__PRISMA_STATE = null;
     if (prev && typeof prev.stop === "function") { try { prev.stop(); } catch (e) { /* ignore */ } }
@@ -490,8 +497,8 @@
    * the revealed cloze answers (non-cloze cards: only the text after the answer divider).
    * Returns { spans, groups } — groups[i] tells which cloze a span belongs to.
    */
-  function pickSpoken(all) {
-    if (!backOnly || SPEECH.answerRead !== "cloze") return { spans: all, groups: null };
+  function pickSpoken(all, mode) {
+    if (!backOnly || mode !== "cloze") return { spans: all, groups: null };
     var clozes = Array.prototype.slice.call(root.querySelectorAll(".cloze"));
     var picked = [], groups = [];
     if (clozes.length) {
@@ -511,8 +518,8 @@
     return picked.length ? { spans: picked, groups: groups } : { spans: all, groups: null };
   }
 
-  function speak(all) {
-    var sel = pickSpoken(all), spans = sel.spans;
+  function speak(all, mode) {
+    var sel = pickSpoken(all, mode || SPEECH.answerRead), spans = sel.spans;
     var built = buildUtteranceText(spans, sel.groups);
     var timers = [];
     var stepper = makeStepper(spans), stopPacer = null;
@@ -570,16 +577,31 @@
     // keeping a reference stops Chromium from garbage-collecting the utterance mid-speech
     // (which would silence onboundary/onend and leave words hidden)
     window.__PRISMA_UTT = utt;
-    stops.push(function () {
+    stopSpeech = function () {
       stopped = true;
       endPacer();
       timers.forEach(clearTimeout);
       speechSynthesis.removeEventListener("voiceschanged", go);
       if (window.__PRISMA_UTT === utt) window.__PRISMA_UTT = null;
-    });
+    };
+    stops.push(stopSpeech);
 
     var delay = num(SPEECH.delayMs, 350);
     later(begin, delay >= 0 ? delay : 350);
+  }
+
+  /**
+   * Read again, on demand (desktop shortcuts). mode "cloze": only the cloze answer(s) — on the back;
+   * anything else: the whole card (front and back together when the answer is showing).
+   */
+  function replay(mode) {
+    if (!on.speak) return;
+    if (stopSpeech) { try { stopSpeech(); } catch (e) { /* ignore */ } stopSpeech = null; }
+    try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    var spans = Array.prototype.slice.call(root.querySelectorAll(".kw"));
+    if (!spans.length) spans = wrapWords(findTargets()); // the back with no automatic reading: words not wrapped yet
+    spans.forEach(function (s) { s.classList.remove("kw-active", "kw-hidden"); });
+    if (spans.length) speak(spans, mode === "cloze" ? "cloze" : "full");
   }
 
   // ------------------------------------------------------------ 7. run
@@ -589,6 +611,8 @@
   window.__PRISMA_STATE = state;
   root.setAttribute("data-prisma-by", AUTHOR);
   root.setAttribute("data-prisma-sig", "ZHJnbWI=");
+
+  if (!autoRead) return; // back with no automatic reading: only the replay shortcuts are served
 
   // Runs synchronously, before the card's first paint: no flash, no blank wait.
   // Only the speech honors speech.delayMs.

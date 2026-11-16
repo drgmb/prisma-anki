@@ -16,6 +16,7 @@ Prefer the **Tools → Prisma…** window, which covers every option below.
 | `defaultModelEnabled` | whether note types not listed in `models` are enabled |
 | `models[name].fields` | field names Prisma works on, e.g. `["Text"]`; absent = automatic (every field the front shows; tags, timers and buttons excluded) |
 | `models` | per note type: `{"enabled": true, "baked": true, "features": {"beeline": false}}` — `features` overrides only the keys present; `baked` writes the block into the templates (works on mobile) |
+| `replayAnswerShortcut` / `replayCardShortcut` | shortcuts (reviewer) to read again the cloze answer(s) / the whole card together with the answer; need Read aloud on |
 | `toggleShortcut` | shortcut to toggle the add-on on/off (there is no menu item for it) |
 
 ---

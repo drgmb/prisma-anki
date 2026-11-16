@@ -44,8 +44,9 @@ _MARKER_RE = re.compile(r"<!--prisma:marker-start[^>]*-->.*?<!--prisma:marker-en
 
 
 def reads_back(cfg: Dict[str, Any], features: Dict[str, bool]) -> bool:
-    """True when the back should also get a (speech-only) block: speech.answerRead is "full" or "cloze"."""
-    return bool(features.get("speech")) and cfg.get("speech", {}).get("answerRead", "off") in ("full", "cloze")
+    """True when the back also gets a (speech-only) block: it reads the back by itself when
+    speech.answerRead asks for it, and serves the replay shortcuts."""
+    return bool(features.get("speech"))
 
 
 def build_block(cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100, side: str = "question") -> str:
