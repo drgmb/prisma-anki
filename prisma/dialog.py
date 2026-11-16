@@ -157,7 +157,7 @@ class SettingsDialog(QDialog):
         idx = self.cmb_answer.findData(s.get("answerRead", "off"))
         self.cmb_answer.setCurrentIndex(max(idx, 0))
         form.addRow("On the back (answer):", self.cmb_answer)
-        form.addRow(_muted("The front is always read in full. The back keeps looking exactly as its template made it; this only chooses what is read aloud there. Cloze cards: \"only the cloze answer\" reads just the revealed words; other cards: only what comes after the answer divider. Needs Read aloud on. Desktop only (not baked templates)."))
+        form.addRow(_muted("The front is always read in full. The back keeps looking exactly as its template made it; this only chooses what is read aloud there. Cloze cards: \"only the cloze answer\" reads just the revealed words; other cards: only what comes after the answer divider. Needs Read aloud on. Baked note types are refreshed when you save here."))
         self.le_blank = QLineEdit(s.get("blankWord", "blank"))
         form.addRow("How to read a cloze [...]:", self.le_blank)
 

@@ -9,6 +9,7 @@ touching the rest of the template:
 
   front template  → ... <!--prisma:start--> style + config + script <!--prisma:end-->
   back template   → <!--prisma:marker-start--> hidden marker <!--prisma:marker-end--> ...
+                  [+ the same block with side="answer", when speech.answerRead reads the back]
 
 The marker tells the front block (re-rendered through {{FrontSide}}) that it is
 on the back side, so it steps aside instead of running twice.
@@ -42,9 +43,14 @@ _BLOCK_RE = re.compile(r"<!--prisma:start[^>]*-->.*?<!--prisma:end[^>]*-->", re.
 _MARKER_RE = re.compile(r"<!--prisma:marker-start[^>]*-->.*?<!--prisma:marker-end[^>]*-->", re.S)
 
 
-def build_block(cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100) -> str:
+def reads_back(cfg: Dict[str, Any], features: Dict[str, bool]) -> bool:
+    """True when the back should also get a (speech-only) block: speech.answerRead is "full" or "cloze"."""
+    return bool(features.get("speech")) and cfg.get("speech", {}).get("answerRead", "off") in ("full", "cloze")
+
+
+def build_block(cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100, side: str = "question") -> str:
     """The same payload the runtime injector uses, frozen into template text."""
-    payload = injector.payload(cfg, features, text_size, baked=True)
+    payload = injector.payload(cfg, features, text_size, baked=True, side=side)
     css, js = injector.assets()
     block = (
         START
@@ -81,6 +87,9 @@ def apply_to_templates(qfmt: str, afmt: str, cfg: Dict[str, Any], features: Dict
     qfmt = fields.wrap_template(qfmt, names)
     qfmt = qfmt + "\n" + build_block(cfg, features, text_size) + "\n"
     afmt = MARKER + "\n" + afmt
+    if reads_back(cfg, features):
+        # after the back's content, so the words (and the cloze answers) exist when the block runs
+        afmt = afmt + "\n" + build_block(cfg, features, side="answer") + "\n"
     return qfmt, afmt
 
 
