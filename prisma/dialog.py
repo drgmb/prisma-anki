@@ -14,7 +14,7 @@ from aqt.qt import (
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton, QSpinBox, QTableWidget,
     QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget, Qt,
 )
-from aqt.utils import tooltip
+from aqt.utils import showWarning, tooltip
 
 from . import config, templates
 from .config import FEATURES
@@ -44,11 +44,11 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Prisma — Settings · by drgmb")
         self.resize(940, 640)
         self.cfg = config.load()
+        config.follow_renames(self.cfg)
         self.on_saved = on_saved
-        self.model_names: List[str] = sorted(
-            (m.name for m in mw.col.models.all_names_and_ids()), key=str.lower
-        )
-        self.rows: List[Tuple[str, QCheckBox, QCheckBox, QSpinBox, Dict[str, QComboBox]]] = []
+        self.model_ids: Dict[str, int] = {m.name: int(m.id) for m in mw.col.models.all_names_and_ids()}
+        self.model_names: List[str] = sorted(self.model_ids, key=str.lower)
+        self.rows: List[Tuple[str, QCheckBox, QCheckBox, QSpinBox, QLineEdit, Dict[str, QComboBox]]] = []
         self._build()
 
     # ------------------------------------------------------------ layout
@@ -90,12 +90,7 @@ class SettingsDialog(QDialog):
         self.cb_enabled.setChecked(bool(cfg["enabled"]))
         form.addRow(self.cb_enabled)
 
-        self.cb_side = {}
-        for key, label in (("question", "Apply to the front (question)"), ("answer", "Apply to the back (answer)")):
-            cb = QCheckBox(label)
-            cb.setChecked(bool(cfg["applyOn"].get(key, False)))
-            self.cb_side[key] = cb
-            form.addRow(cb)
+        form.addRow(_muted("Prisma works on the front of the card. The back is always shown exactly as the template made it."))
 
         self.cb_where = {}
         row = QHBoxLayout()
@@ -125,7 +120,7 @@ class SettingsDialog(QDialog):
             cb.setChecked(bool(self.cfg["features"].get(key, False)))
             self.cb_feature[key] = cb
             form.addRow(cb)
-        form.addRow(_muted("Highlighting and progressive reveal only happen while Read aloud is on."))
+        form.addRow(_muted("Every feature works on its own. Without Read aloud, the highlight and the word-by-word reveal follow a silent pacer at the speech speed set below."))
         return box
 
     def _group_text(self) -> QGroupBox:
@@ -156,11 +151,13 @@ class SettingsDialog(QDialog):
         self.le_voice.setPlaceholderText("empty = first voice for the language")
         form.addRow("Voice name:", self.le_voice)
         self.cmb_answer = QComboBox()
+        self.cmb_answer.addItem("Don't read the back", "off")
         self.cmb_answer.addItem("Re-read the whole card", "full")
         self.cmb_answer.addItem("Read only the cloze answer(s)", "cloze")
-        self.cmb_answer.setCurrentIndex(1 if s.get("answerRead") == "cloze" else 0)
+        idx = self.cmb_answer.findData(s.get("answerRead", "off"))
+        self.cmb_answer.setCurrentIndex(max(idx, 0))
         form.addRow("On the back (answer):", self.cmb_answer)
-        form.addRow(_muted("The front is always read in full. On cloze cards, \"only the cloze answer\" reads just the revealed words; on other cards it reads only what comes after the answer divider. Needs \"Apply to the back\" and Read aloud on."))
+        form.addRow(_muted("The front is always read in full. The back keeps looking exactly as its template made it; this only chooses what is read aloud there. Cloze cards: \"only the cloze answer\" reads just the revealed words; other cards: only what comes after the answer divider. Needs Read aloud on. Desktop only (not baked templates)."))
         self.le_blank = QLineEdit(s.get("blankWord", "blank"))
         form.addRow("How to read a cloze [...]:", self.le_blank)
 
@@ -186,7 +183,7 @@ class SettingsDialog(QDialog):
     def _tab_models(self) -> QWidget:
         page = QWidget()
         col = QVBoxLayout(page)
-        col.addWidget(_muted('Tick the note types to apply Prisma to. For each feature, "Global" follows the default from the General tab. "Bake" writes the features into the note type\'s templates so they also work on AnkiDroid and AnkiMobile; baked templates are refreshed every time you save here and cleaned up when you untick.'))
+        col.addWidget(_muted('Tick the note types to apply Prisma to. For each feature, "Global" follows the default from the General tab. "Main field(s)" is where Prisma applies: leave it on auto (everything the front of the card shows) or type the field names, comma-separated. Tags, extra fields, timers, buttons and images are never touched. "Bake" writes the features into the note type\'s templates so they also work on AnkiDroid and AnkiMobile; baked templates are refreshed every time you save here and cleaned up when you untick.'))
 
         top = QHBoxLayout()
         self.cb_default = QCheckBox("Unlisted / new note types are enabled by default")
@@ -208,7 +205,7 @@ class SettingsDialog(QDialog):
         return page
 
     def _models_table(self) -> QTableWidget:
-        headers = ["Note type", "Enabled", "Bake (mobile)", "Text size"] + [label.split(" ", 1)[1] for _, label in FEATURES]
+        headers = ["Note type", "Enabled", "Bake (mobile)", "Text size", "Main field(s)"] + [label.split(" ", 1)[1] for _, label in FEATURES]
         table = QTableWidget(len(self.model_names), len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.verticalHeader().setVisible(False)
@@ -237,37 +234,50 @@ class SettingsDialog(QDialog):
             size.setSingleStep(5)
             size.setSpecialValueText("Global")
             size.setSuffix(" %")
-            size.setValue(int(entry.get("textSize") or 0))
+            stored = int(entry.get("textSize") or 0)
+            size.setValue(max(50, stored) if stored else 0)
+            # 0 = Global, otherwise 50–300 %: stepping up from Global lands on 50, stepping down from 50 on Global
+            size.setKeyboardTracking(False)
+            size.valueChanged.connect(lambda v, s=size: s.setValue(0 if v >= 45 else 50) if 0 < v < 50 else None)
             table.setCellWidget(r, 3, size)
+
+            main = QLineEdit(", ".join(config.resolve_fields(self.cfg, name)))
+            main.setPlaceholderText("auto")
+            main.setMinimumWidth(110)
+            table.setCellWidget(r, 4, main)
 
             combos: Dict[str, QComboBox] = {}
             overrides = entry.get("features", {})
-            for c, (key, _) in enumerate(FEATURES, start=4):
+            for c, (key, _) in enumerate(FEATURES, start=5):
                 combo = QComboBox()
                 combo.addItems(OVERRIDE_OPTIONS)
                 if key in overrides:
                     combo.setCurrentIndex(1 if overrides[key] else 2)
                 table.setCellWidget(r, c, combo)
                 combos[key] = combo
-            self.rows.append((name, cb, bake, size, combos))
+            self.rows.append((name, cb, bake, size, main, combos))
         self.table = table
         return table
 
     # ------------------------------------------------------------ actions
     def _set_visible(self, value: bool) -> None:
-        for r, (_, cb, _, _, _) in enumerate(self.rows):
+        for r, (_, cb, _, _, _, _) in enumerate(self.rows):
             if not self.table.isRowHidden(r):
                 cb.setChecked(value)
 
     def _apply_filter(self, text: str) -> None:
         needle = text.lower().strip()
-        for r, (name, _, _, _, _) in enumerate(self.rows):
+        for r, (name, _, _, _, _, _) in enumerate(self.rows):
             self.table.setRowHidden(r, bool(needle) and needle not in name.lower())
 
     def _collect_models(self, default_enabled: bool) -> Dict[str, Any]:
         """Store only what differs from the defaults, so the config stays small."""
-        models: Dict[str, Any] = {}
-        for name, cb, bake, size, combos in self.rows:
+        # The config is shared by every profile: entries for note types that are not in this
+        # collection belong to another profile and must survive the save.
+        models: Dict[str, Any] = {
+            name: entry for name, entry in self.cfg.get("models", {}).items() if name not in self.model_ids
+        }
+        for name, cb, bake, size, main, combos in self.rows:
             entry: Dict[str, Any] = {}
             if cb.isChecked() != default_enabled:
                 entry["enabled"] = cb.isChecked()
@@ -275,17 +285,20 @@ class SettingsDialog(QDialog):
                 entry["baked"] = True
             if size.value():
                 entry["textSize"] = size.value()
+            main_fields = [f.strip() for f in main.text().split(",") if f.strip()]
+            if main_fields:
+                entry["fields"] = main_fields
             overrides = {k: (c.currentIndex() == 1) for k, c in combos.items() if c.currentIndex() != 0}
             if overrides:
                 entry["features"] = overrides
             if entry:
+                entry["id"] = self.model_ids[name]  # lets the entry follow a rename
                 models[name] = entry
         return models
 
     def _save(self) -> None:
         cfg = self.cfg
         cfg["enabled"] = self.cb_enabled.isChecked()
-        cfg["applyOn"] = {k: cb.isChecked() for k, cb in self.cb_side.items()}
         cfg["applyIn"] = {k: cb.isChecked() for k, cb in self.cb_where.items()}
         cfg["skipIfTemplateHasOwn"] = self.cb_skip.isChecked()
         cfg["toggleShortcut"] = self.le_shortcut.text().strip()
@@ -303,10 +316,14 @@ class SettingsDialog(QDialog):
         cfg["defaultModelEnabled"] = self.cb_default.isChecked()
         cfg["models"] = self._collect_models(cfg["defaultModelEnabled"])
         config.save(cfg)
-        baked, removed = templates.sync(cfg)
+        baked, removed = [], []
+        try:
+            baked, removed = templates.sync(cfg)
+        except Exception as exc:  # the settings are already saved: report, don't leave the dialog stuck
+            showWarning(f"Prisma: the settings were saved, but updating the baked templates failed:\n\n{exc}")
         msg = "Prisma: settings saved"
         if baked:
-            msg += f" · baked into {len(baked)} note type(s)"
+            msg += f" · baked templates updated in {len(baked)} note type(s)"
         if removed:
             msg += f" · removed from {len(removed)} note type(s)"
         tooltip(msg, period=2500)

@@ -11,6 +11,10 @@
   var AUTHOR = "drgmb"; // https://github.com/drgmb
   window.__PRISMA_BY = AUTHOR;
 
+  // inline styles Prisma writes on the root; keep in sync with injector.py (_RESET)
+  var STYLE_PROPS = ["maxWidth", "marginLeft", "marginRight", "textAlign", "wordSpacing",
+                     "letterSpacing", "paddingLeft", "fontSize"];
+
   // ------------------------------------------------------------ 1. config
   var cfg = window.__PRISMA_CFG;
   window.__PRISMA_CFG = null;
@@ -19,11 +23,21 @@
   var hasSpeech = "speechSynthesis" in window;
   if (hasSpeech) { try { speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
 
+  var root = document.getElementById("qa") || document.body;
+  if (!root) return;
+
+  // baked front block re-rendered on the back side (FrontSide tag): the back gets no Prisma.
+  // Step aside without touching the layout, so the answer keeps the question's shape.
+  if (cfg.baked && cfg.side === "question" && document.getElementById("prisma-answer-marker")) return;
+
+  // #qa outlives the card: drop what the previous card left behind (observers, timers, inline styles)
+  cleanup();
+
+  // desktop add-on says "off" for this card (toggle, note type disabled…): baked blocks obey too
+  if (cfg.baked && window.__PRISMA_OFF) return;
+
   // the card's own template already ships these features: don't apply on top
   if (cfg.skipIfTemplateHasOwn && window.LEITURA_CONFIG) return;
-
-  // baked front block re-rendered on the back side (FrontSide tag): the back has its own block, or none
-  if (cfg.baked && cfg.side === "question" && document.getElementById("prisma-answer-marker")) return;
 
   var F = cfg.features || {};
   var SPEECH = cfg.speech || {};
@@ -34,67 +48,222 @@
     bionic: !!F.bionic,
     beeline: !!F.beeline
   };
-  on.karaoke = on.speak && !!F.karaoke;
-  on.reveal = on.speak && !!F.progressiveReveal;
+  // every feature stands on its own: with the speech off, highlight and reveal follow a silent pacer
+  on.karaoke = !!F.karaoke;
+  on.reveal = !!F.progressiveReveal;
 
-  var root = document.getElementById("qa") || document.body;
-  if (!root) return;
-  var needsWords = on.speak || on.bionic || on.beeline;
-  var sizePct = +cfg.textSizePct; if (isNaN(sizePct) || sizePct <= 0) sizePct = 100;
+  // the back is shown exactly as its template made it: there Prisma only reads aloud (and highlights)
+  var backOnly = cfg.side === "answer";
+  if (backOnly) {
+    if (!on.speak) return;
+    on.layout = on.bionic = on.beeline = on.reveal = false;
+  }
+
+  var needsWords = on.speak || on.bionic || on.beeline || on.karaoke || on.reveal;
+  var sizePct = backOnly ? 100 : +cfg.textSizePct; if (isNaN(sizePct) || sizePct <= 0) sizePct = 100;
   var textBase = Math.min(3, Math.max(0.5, sizePct / 100)); // 1 = template size
   if (!needsWords && !on.layout && textBase === 1) return;
 
   // ------------------------------------------------------------ 2. DOM helpers
-  var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, BUTTON: 1, SELECT: 1 };
+  var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEXTAREA: 1, INPUT: 1, BUTTON: 1, SELECT: 1,
+                    SVG: 1, MATH: 1, "ANKI-MATHJAX": 1 };
+  // containers that are never reading material, whatever the template calls them exactly
+  // (tags-container, prettify-tags, timer, countdown…)
+  var NOT_CONTENT = /(^|[^a-z])(tags?|timer|countdown)([^a-z]|$)/i;
+  var stops = []; // teardown callbacks for this card
 
   function rand(min, max) { return min + Math.random() * (max - min); }
   function num(v, fallback) { v = +v; return isNaN(v) ? fallback : v; }
 
+  function cleanup() {
+    var prev = window.__PRISMA_STATE;
+    window.__PRISMA_STATE = null;
+    if (prev && typeof prev.stop === "function") { try { prev.stop(); } catch (e) { /* ignore */ } }
+    var styled = Array.prototype.slice.call(document.querySelectorAll("[data-prisma-styled]"));
+    styled.forEach(function (el) {
+      STYLE_PROPS.forEach(function (p) { el.style[p] = ""; });
+      el.removeAttribute("data-prisma-styled");
+    });
+  }
+
   function isSkipped(el) {
     for (; el && el !== root; el = el.parentNode) {
       if (el.nodeType !== 1) continue;
-      if (SKIP_TAGS[el.tagName] || el.hasAttribute("data-prisma-skip")) return true;
+      var tag = (el.tagName || "").toUpperCase();
+      if (SKIP_TAGS[tag] || tag.indexOf("MJX-") === 0) return true; // rendered MathJax included
+      if (el.hasAttribute("data-prisma-skip")) return true;
+      if (NOT_CONTENT.test((el.id || "") + " " + (el.getAttribute("class") || ""))) return true;
       if (el.classList.contains("kw")) return true; // already processed
     }
     return false;
   }
-  function isRendered(el) { return !el || el === root || el.getClientRects().length > 0; }
+  function isRendered(el) {
+    // a display:contents wrapper has no box of its own: what counts is the element around it
+    while (el && el !== root && el.tagName === "PRISMA-TARGET") el = el.parentElement;
+    return !el || el === root || el.getClientRects().length > 0;
+  }
+  /** Text the author (or the template's cloze styling) colored on purpose keeps its color. */
   function hasOwnColor(el) {
     for (; el && el !== root; el = el.parentNode) {
       if (el.nodeType !== 1) continue;
       if ((el.style && el.style.color) || (el.tagName === "FONT" && el.getAttribute("color"))) return true;
+      if (el.classList.contains("cloze") || el.classList.contains("cloze-hint")) return true;
     }
     return false;
   }
+  /** Text a template hides with a transparent color (AnKing's countdown timer…) must stay hidden and unread. */
+  var transparentCache = typeof Map === "function" ? new Map() : null;
+  function isTransparent(el) {
+    if (!el || !window.getComputedStyle) return false;
+    if (transparentCache && transparentCache.has(el)) return transparentCache.get(el);
+    var color = getComputedStyle(el).color || "";
+    var m = /^rgba\(.*,\s*([\d.]+)\s*\)$/.exec(color);
+    var result = color === "transparent" || (!!m && parseFloat(m[1]) === 0);
+    if (transparentCache) transparentCache.set(el, result);
+    return result;
+  }
+
+  /**
+   * Where Prisma applies: what the front of the card shows (and, on the back, that same content
+   * again), never tags, timers, fields that only exist on the back, or buttons.
+   * 1. prisma-target wrapper elements written by the add-on (runtime) or baked into the template
+   *    (helper fields a template keeps in a hidden container are left out);
+   * 2. failing that, the whole card (tags and timers are still skipped by name).
+   */
+  function findTargets() {
+    var marked = Array.prototype.slice.call(root.querySelectorAll("prisma-target"));
+    marked = marked.filter(function (el) {
+      return !isSkipped(el.parentNode) && !(el.parentNode.closest && el.parentNode.closest("prisma-target"));
+    });
+    var shown = marked.filter(isRendered);
+    if (shown.length) return shown;
+    if (marked.length) return marked;
+    return [root];
+  }
+
   function isDarkTheme() {
     return !!document.querySelector(".night_mode, .nightMode") || document.body.classList.contains("nightMode");
   }
+  function isAlive(spans) { return !!spans.length && document.body.contains(spans[0]); }
 
   // ------------------------------------------------------------ 3. random layout
-  function randomizeLayout() {
-    var s = root.style;
-    s.maxWidth = rand(num(LAYOUT.minWidthEm, 24), num(LAYOUT.maxWidthEm, 44)).toFixed(1) + "em";
-    s.marginLeft = "auto";
-    s.marginRight = "auto";
-    s.textAlign = Math.random() < 0.5 ? "left" : "justify";
-    s.wordSpacing = rand(0, num(LAYOUT.maxWordSpacingPx, 3)).toFixed(2) + "px";
-    s.letterSpacing = rand(0, num(LAYOUT.maxLetterSpacingPx, 1.2)).toFixed(2) + "px";
-    s.paddingLeft = rand(0, num(LAYOUT.maxIndentPx, 30)).toFixed(0) + "px";
-    s.fontSize = (textBase * rand(num(LAYOUT.minFontPct, 95), num(LAYOUT.maxFontPct, 107))).toFixed(1) + "%";
+  /** One draw per card. */
+  function drawLayout() {
+    return {
+      maxWidth: rand(num(LAYOUT.minWidthEm, 24), num(LAYOUT.maxWidthEm, 44)).toFixed(1) + "em",
+      textAlign: Math.random() < 0.5 ? "left" : "justify",
+      wordSpacing: rand(0, num(LAYOUT.maxWordSpacingPx, 3)).toFixed(2) + "px",
+      letterSpacing: rand(0, num(LAYOUT.maxLetterSpacingPx, 1.2)).toFixed(2) + "px",
+      indent: +rand(0, num(LAYOUT.maxIndentPx, 30)).toFixed(0),
+      fontPct: rand(num(LAYOUT.minFontPct, 95), num(LAYOUT.maxFontPct, 107))
+    };
   }
-  function applyTextSize() { root.style.fontSize = (textBase * 100).toFixed(1) + "%"; }
+
+  function randomizeLayout(targets) {
+    var L = drawLayout();
+    var refWidth = root.clientWidth; // what the template's image rules were written against
+    var images = collectImages(targets, refWidth);
+    targets.forEach(function (el) {
+      var s = el.style;
+      s.maxWidth = L.maxWidth;
+      s.marginLeft = "auto";
+      s.marginRight = "auto";
+      s.textAlign = L.textAlign;
+      s.wordSpacing = L.wordSpacing;
+      s.letterSpacing = L.letterSpacing;
+      s.paddingLeft = L.indent + "px";
+      // on the root the text size is part of the same property; on a wrapper it multiplies the root's
+      s.fontSize = ((el === root ? textBase : 1) * L.fontPct).toFixed(1) + "%";
+      el.setAttribute("data-prisma-styled", "1");
+    });
+    protectImages(images, L.indent);
+  }
+  function applyTextSize() {
+    root.style.fontSize = (textBase * 100).toFixed(1) + "%";
+    root.setAttribute("data-prisma-styled", "1");
+  }
+
+  /**
+   * Images are not part of the reading exercise: the narrower, indented, left/justified text column
+   * must not shrink or push them. Each image keeps the size limit its template gave it (resolved
+   * against the full card width, before the column narrows) and is centered on the card.
+   */
+  function collectImages(targets, refWidth) {
+    var out = [];
+    targets.forEach(function (el) {
+      Array.prototype.forEach.call(el.querySelectorAll("img"), function (img) {
+        var mw = getComputedStyle(img).maxWidth || "";
+        var cap = refWidth;
+        if (/%$/.test(mw)) cap = refWidth * parseFloat(mw) / 100;
+        else if (/px$/.test(mw)) cap = Math.min(refWidth, parseFloat(mw));
+        out.push({ img: img, capRatio: refWidth ? cap / refWidth : 1 });
+      });
+    });
+    return out;
+  }
+  function protectImages(images, indent) {
+    if (!images.length) return;
+    function place(item) {
+      var img = item.img;
+      if (!document.body.contains(img)) return;
+      if (img.complete && img.naturalWidth && img.naturalWidth < 64) return; // inline icon / symbol
+      img.style.setProperty("max-width", Math.floor(root.clientWidth * item.capRatio) + "px", "important");
+      img.style.height = "auto";
+      img.style.display = "block";
+      img.style.marginRight = "auto";
+      var column = img.parentElement ? img.parentElement.clientWidth : 0;
+      var width = img.getBoundingClientRect().width;
+      // centered on the card, not on the indented column: may be negative when wider than the column
+      img.style.marginLeft = (column && width ? ((column - width) / 2 - indent / 2).toFixed(1) + "px" : "auto");
+    }
+    function placeAll() { images.forEach(place); }
+    images.forEach(function (item) {
+      if (!item.img.complete) item.img.addEventListener("load", function () { place(item); }, { once: true });
+    });
+    placeAll();
+    reflowCallbacks.push(placeAll);
+  }
 
   // ------------------------------------------------------------ 4. word wrapping
-  function collectTextNodes() {
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+  function collectTextNodes(targets) {
     var nodes = [];
-    while (walker.nextNode()) {
-      var node = walker.currentNode;
-      if (!/\S/.test(node.nodeValue)) continue;
-      if (isSkipped(node.parentNode) || !isRendered(node.parentElement)) continue;
-      nodes.push(node);
-    }
+    targets.forEach(function (target) {
+      var walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT, null, false);
+      while (walker.nextNode()) {
+        var node = walker.currentNode;
+        if (!/\S/.test(node.nodeValue)) continue;
+        if (isSkipped(node.parentNode) || !isRendered(node.parentElement)) continue;
+        if (isTransparent(node.parentElement)) continue;
+        nodes.push(node);
+      }
+    });
     return nodes;
+  }
+
+  /**
+   * MathJax typesets after this script runs, so raw \( … \) and \[ … \] must reach it untouched.
+   * Splits `text` into [chunk, isMath] pairs; `state.close` carries an open formula across text nodes.
+   */
+  var MATH_OPEN = /\\\(|\\\[/;
+  function splitMath(text, state) {
+    var out = [], pos = 0;
+    while (pos < text.length) {
+      var from = pos, searchFrom = pos;
+      if (!state.close) {
+        var m = MATH_OPEN.exec(text.slice(pos));
+        if (!m) { out.push([text.slice(pos), false]); break; }
+        if (m.index) out.push([text.slice(pos, pos + m.index), false]);
+        from = pos + m.index;
+        searchFrom = from + 2;
+        state.close = m[0] === "\\(" ? "\\)" : "\\]";
+      }
+      var end = text.indexOf(state.close, searchFrom);
+      var upTo = end < 0 ? text.length : end + 2;
+      if (end >= 0) state.close = null;
+      out.push([text.slice(from, upTo), true]);
+      pos = upTo;
+    }
+    return out;
   }
 
   function makeWordSpan(word, colored) {
@@ -117,17 +286,22 @@
   }
 
   /** Wraps every visible word in <span class="kw">; returns the spans in reading order. */
-  function wrapWords() {
-    var spans = [];
-    collectTextNodes().forEach(function (node) {
+  function wrapWords(targets) {
+    var spans = [], mathState = { close: null };
+    collectTextNodes(targets).forEach(function (node) {
+      var chunks = splitMath(node.nodeValue, mathState);
+      if (!chunks.some(function (c) { return !c[1] && /\S/.test(c[0]); })) return; // formula only
       var colored = hasOwnColor(node.parentNode);
       var frag = document.createDocumentFragment();
-      node.nodeValue.split(/(\s+)/).forEach(function (part) {
-        if (!part) return;
-        if (!part.trim()) { frag.appendChild(document.createTextNode(part)); return; }
-        var span = makeWordSpan(part, colored);
-        frag.appendChild(span);
-        spans.push(span);
+      chunks.forEach(function (chunk) {
+        if (chunk[1]) { frag.appendChild(document.createTextNode(chunk[0])); return; }
+        chunk[0].split(/(\s+)/).forEach(function (part) {
+          if (!part) return;
+          if (!part.trim()) { frag.appendChild(document.createTextNode(part)); return; }
+          var span = makeWordSpan(part, colored);
+          frag.appendChild(span);
+          spans.push(span);
+        });
       });
       node.parentNode.replaceChild(frag, node);
     });
@@ -162,22 +336,32 @@
     return [base, readable(hue1), base, readable(hue2)];
   }
 
-  /** Groups the spans by visual line (same vertical position on screen). */
+  /**
+   * Groups the spans by visual line. A span stays on the current line while it overlaps the line's
+   * vertical band, so superscripts, subscripts and mixed font sizes don't start a new line.
+   */
   function groupByLine(spans) {
-    var lines = [], line = [], lastTop = null;
+    var lines = [], line = [], top = 0, bottom = 0;
     spans.forEach(function (s) {
       if (s.dataset.beelineSkip === "1") return;
-      var top = s.getBoundingClientRect().top;
-      if (lastTop !== null && Math.abs(top - lastTop) >= 2) { lines.push(line); line = []; }
+      var r = s.getBoundingClientRect();
+      if (!r.width && !r.height) return; // not rendered (any more)
+      var mid = (r.top + r.bottom) / 2;
+      var sameLine = line.length && ((mid > top && mid < bottom) || ((top + bottom) / 2 > r.top && (top + bottom) / 2 < r.bottom));
+      if (!sameLine) {
+        if (line.length) lines.push(line);
+        line = [];
+        top = r.top; bottom = r.bottom;
+      } else {
+        top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom);
+      }
       line.push(s);
-      lastTop = top;
     });
     if (line.length) lines.push(line);
     return lines;
   }
 
-  function applyBeeLine(spans) {
-    var palette = makePalette();
+  function applyBeeLine(spans, palette) {
     function paint() {
       groupByLine(spans).forEach(function (line, li) {
         var from = palette[li % palette.length];
@@ -187,16 +371,36 @@
       });
     }
     paint();
-    // lines change when the window is resized: repaint, and detach once the card is gone
-    var timer = null;
-    function onResize() {
+
+    reflowCallbacks.push(function () { if (isAlive(spans)) paint(); });
+  }
+
+  /** Lines move when the window is resized, images load, MathJax typesets or a hint opens. */
+  var reflowCallbacks = [];
+  function watchReflow() {
+    if (!reflowCallbacks.length) return;
+    var timer = null, late = null, observer = null;
+    function stop() {
+      clearTimeout(timer);
+      clearTimeout(late);
+      if (observer) observer.disconnect();
+      window.removeEventListener("resize", reflow);
+    }
+    function reflow() {
       clearTimeout(timer);
       timer = setTimeout(function () {
-        if (document.body.contains(spans[0])) paint();
-        else window.removeEventListener("resize", onResize);
+        if (!document.body.contains(root) || window.__PRISMA_STATE !== state) { stop(); return; }
+        reflowCallbacks.forEach(function (fn) { fn(); });
       }, 150);
     }
-    window.addEventListener("resize", onResize);
+    if (window.ResizeObserver) {
+      observer = new ResizeObserver(reflow);
+      observer.observe(root);
+    } else {
+      window.addEventListener("resize", reflow);
+    }
+    late = setTimeout(reflow, 600);
+    stops.push(stop);
   }
 
   // ------------------------------------------------------------ 6. speech / karaoke / reveal
@@ -204,7 +408,7 @@
     var starts = [], text = "";
     spans.forEach(function (s, i) {
       var w = s.textContent;
-      if (w === "[...]") w = SPEECH.blankWord || "blank";
+      if (w.indexOf("[...]") === 0) w = (SPEECH.blankWord || "blank") + w.slice(5);
       // a pause between separate answers (cloze mode): punctuation makes the synthesizer breathe
       if (i) text += groups && groups[i] !== groups[i - 1] ? ". " : " ";
       starts.push(text.length);
@@ -231,15 +435,63 @@
     return voices.find(function (v) { return (v.lang || "").replace("_", "-").toLowerCase() === want; }) || null;
   }
 
+  /** Moves the highlight / the reveal to word `i`; shared by the speech and by the silent pacer. */
+  function makeStepper(spans) {
+    var current = -1;
+    return {
+      index: function () { return current; },
+      to: function (i) {
+        if (i === current || i < 0 || i >= spans.length) return;
+        if (on.karaoke && current >= 0) spans[current].classList.remove("kw-active");
+        if (on.reveal) for (var k = 0; k <= i; k++) spans[k].classList.remove("kw-hidden");
+        if (on.karaoke) spans[i].classList.add("kw-active");
+        current = i;
+      },
+      done: function () { spans.forEach(function (s) { s.classList.remove("kw-active", "kw-hidden"); }); }
+    };
+  }
+
+  /** Reading time of one word at the configured speed: longer words and punctuation take longer. */
+  function wordMs(word) {
+    var rate = Math.min(2, Math.max(0.5, num(SPEECH.rate, 1)));
+    var beat = 60000 / (170 * rate); // ~170 words per minute at 1×, close to the system voices
+    var letters = word.replace(/[^0-9A-Za-z\u00C0-\u024F]/g, "").length || 1;
+    var ms = beat * (0.55 + 0.09 * Math.min(letters, 14));
+    if (/[.!?;:]["')\]]*$/.test(word)) ms += beat * 0.9;
+    else if (/,["')\]]*$/.test(word)) ms += beat * 0.4;
+    return ms;
+  }
+
+  /** Walks the words on a timer, without any sound. Returns a function that stops it. */
+  function runPacer(spans, stepper, from) {
+    var i = Math.max(0, from), timer = null, stopped = false;
+    function tick() {
+      if (stopped || !isAlive(spans)) return;
+      if (i >= spans.length) { stepper.done(); return; }
+      stepper.to(i);
+      timer = setTimeout(tick, wordMs(spans[i].textContent));
+      i++;
+    }
+    tick();
+    return function () { stopped = true; clearTimeout(timer); };
+  }
+
+  function paceSilently(spans) {
+    var stopPacer = null, stopped = false;
+    var delay = num(SPEECH.delayMs, 350);
+    var timer = setTimeout(function () {
+      if (!stopped) stopPacer = runPacer(spans, makeStepper(spans), 0);
+    }, delay >= 0 ? delay : 350);
+    stops.push(function () { stopped = true; clearTimeout(timer); if (stopPacer) stopPacer(); });
+  }
+
   /**
    * What to read on the back (SPEECH.answerRead): "full" re-reads the whole card; "cloze" reads only
-   * the revealed cloze answers (falls back to the text after the answer divider for non-cloze cards).
-   * Returns { spans, groups } — groups[i] tells which cloze/answer a span belongs to.
+   * the revealed cloze answers (non-cloze cards: only the text after the answer divider).
+   * Returns { spans, groups } — groups[i] tells which cloze a span belongs to.
    */
   function pickSpoken(all) {
-    var mode = SPEECH.answerRead === "cloze" ? "cloze" : "full";
-    if (cfg.side !== "answer" || mode === "full") return { spans: all, groups: null };
-
+    if (!backOnly || SPEECH.answerRead !== "cloze") return { spans: all, groups: null };
     var clozes = Array.prototype.slice.call(root.querySelectorAll(".cloze"));
     var picked = [], groups = [];
     if (clozes.length) {
@@ -260,69 +512,103 @@
   }
 
   function speak(all) {
-    var sel = pickSpoken(all);
-    var spans = sel.spans;
-    // words that are not read must not stay hidden by the progressive reveal
-    if (spans !== all) all.forEach(function (s) { if (spans.indexOf(s) < 0) s.classList.remove("kw-hidden"); });
+    var sel = pickSpoken(all), spans = sel.spans;
     var built = buildUtteranceText(spans, sel.groups);
-    function revealAll() { all.forEach(function (s) { s.classList.remove("kw-active", "kw-hidden"); }); }
+    var timers = [];
+    var stepper = makeStepper(spans), stopPacer = null;
+    function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+    function endPacer() { if (stopPacer) { stopPacer(); stopPacer = null; } }
+    function revealAll() { endPacer(); stepper.done(); }
 
     var utt = new SpeechSynthesisUtterance(built.text);
     utt.lang = SPEECH.lang || "en-US";
     utt.rate = Math.min(2, Math.max(0.5, num(SPEECH.rate, 1)));
     utt.pitch = Math.min(2, Math.max(0.5, num(SPEECH.pitch, 1)));
 
-    var current = -1;
     utt.onboundary = function (e) {
       if (e.name !== "word") return;
-      var i = spanIndexAt(built.starts, e.charIndex);
-      if (i === current) return;
-      if (on.karaoke && current >= 0) spans[current].classList.remove("kw-active");
-      if (on.reveal) for (var k = 0; k <= i; k++) spans[k].classList.remove("kw-hidden");
-      if (on.karaoke) spans[i].classList.add("kw-active");
-      current = i;
+      endPacer(); // the engine does report words: it leads
+      stepper.to(spanIndexAt(built.starts, e.charIndex));
+    };
+    utt.onstart = function () {
+      // some engines (network voices, Android web views) never report word boundaries:
+      // the silent pacer then carries the highlight / the reveal along with the voice
+      if (!on.karaoke && !on.reveal) return;
+      later(function () {
+        if (stepper.index() < 0 && !stopPacer && !stopped) stopPacer = runPacer(spans, stepper, 0);
+      }, 700);
     };
     utt.onend = revealAll;
     utt.onerror = revealAll;
 
-    var started = false;
+    var started = false, stopped = false;
     function go() {
-      if (started) return;
+      if (started || stopped) return;
       started = true;
+      if (!isAlive(spans)) return; // the card is gone: don't read it over the next one
       var voice = pickVoice(utt.lang);
       if (voice) utt.voice = voice;
       speechSynthesis.cancel();
       speechSynthesis.speak(utt);
-      // safety net: if speech never starts, the text must not stay hidden forever
-      if (on.reveal) setTimeout(function () { if (!speechSynthesis.speaking) revealAll(); }, 3000);
+      // some web views (Android) expose speechSynthesis but never speak, and iOS waits for a tap:
+      // the highlight / the reveal must not wait for a voice that isn't coming
+      if (on.karaoke || on.reveal) later(function () {
+        if (stepper.index() < 0 && !stopPacer && !stopped && !speechSynthesis.speaking) stopPacer = runPacer(spans, stepper, 0);
+      }, 1500);
+      // safety net: if nothing is driving the reveal, the text must not stay hidden forever
+      if (on.reveal) later(function () { if (!speechSynthesis.speaking && !stopPacer) revealAll(); }, 3000);
     }
-    if (speechSynthesis.getVoices().length) go();
-    else {
-      speechSynthesis.addEventListener("voiceschanged", go, { once: true });
-      setTimeout(go, 1000);
+    function begin() {
+      if (stopped) return;
+      if (speechSynthesis.getVoices().length) go();
+      else {
+        speechSynthesis.addEventListener("voiceschanged", go, { once: true });
+        later(go, 1000);
+      }
     }
+
+    // keeping a reference stops Chromium from garbage-collecting the utterance mid-speech
+    // (which would silence onboundary/onend and leave words hidden)
+    window.__PRISMA_UTT = utt;
+    stops.push(function () {
+      stopped = true;
+      endPacer();
+      timers.forEach(clearTimeout);
+      speechSynthesis.removeEventListener("voiceschanged", go);
+      if (window.__PRISMA_UTT === utt) window.__PRISMA_UTT = null;
+    });
+
+    var delay = num(SPEECH.delayMs, 350);
+    later(begin, delay >= 0 ? delay : 350);
   }
 
   // ------------------------------------------------------------ 7. run
+  var state = {
+    stop: function () { stops.forEach(function (fn) { try { fn(); } catch (e) { /* ignore */ } }); }
+  };
+  window.__PRISMA_STATE = state;
   root.setAttribute("data-prisma-by", AUTHOR);
   root.setAttribute("data-prisma-sig", "ZHJnbWI=");
-  if (on.layout) randomizeLayout();
-  else if (textBase !== 1) applyTextSize();
-  if (!needsWords) return;
 
-  // anti-flash: hide until the customizations are in (layout is still computed)
-  root.style.visibility = "hidden";
-  var safety = setTimeout(function () { root.style.visibility = ""; }, 2500);
-
-  function run() {
-    var spans = wrapWords();
-    if (on.beeline && spans.length) applyBeeLine(spans);
-    clearTimeout(safety);
-    root.style.visibility = "";
-    if (on.speak && spans.length) speak(spans);
-    else spans.forEach(function (s) { s.classList.remove("kw-hidden"); });
+  // Runs synchronously, before the card's first paint: no flash, no blank wait.
+  // Only the speech honors speech.delayMs.
+  try {
+    var targets = findTargets();
+    if (textBase !== 1) applyTextSize();
+    if (on.layout) randomizeLayout(targets);
+    if (needsWords) {
+      var spans = wrapWords(targets);
+      if (on.beeline && spans.length) applyBeeLine(spans, makePalette());
+      if (on.speak && spans.length) speak(spans);
+      else if ((on.karaoke || on.reveal) && spans.length) paceSilently(spans);
+      else spans.forEach(function (s) { s.classList.remove("kw-hidden"); });
+    }
+    watchReflow();
+  } catch (e) {
+    // whatever went wrong, the card must stay readable: stop everything and show every word
+    try { state.stop(); } catch (e2) { /* ignore */ }
+    Array.prototype.forEach.call(root.querySelectorAll(".kw-hidden, .kw-active"), function (s) {
+      s.classList.remove("kw-hidden", "kw-active");
+    });
   }
-
-  var delay = num(SPEECH.delayMs, 350);
-  setTimeout(run, delay >= 0 ? delay : 350);
 })();

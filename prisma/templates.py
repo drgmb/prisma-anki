@@ -9,7 +9,6 @@ touching the rest of the template:
 
   front template  → ... <!--prisma:start--> style + config + script <!--prisma:end-->
   back template   → <!--prisma:marker-start--> hidden marker <!--prisma:marker-end--> ...
-                    [+ the same block with side="answer", when the back is enabled]
 
 The marker tells the front block (re-rendered through {{FrontSide}}) that it is
 on the back side, so it steps aside instead of running twice.
@@ -20,48 +19,39 @@ __author__ = "drgmb"
 __url__ = "https://github.com/drgmb"
 
 import json
-import os
 import re
 from typing import Any, Dict, List, Tuple
 
 from aqt import mw
 
-from . import config
-
-_WEB = os.path.join(config.HERE, "web")
+from . import config, fields, injector
+from .injector import _RESET
 
 START, END = "<!--prisma:start by drgmb-->", "<!--prisma:end by drgmb · https://github.com/drgmb-->"
 MARKER_START, MARKER_END = "<!--prisma:marker-start by drgmb-->", "<!--prisma:marker-end-->"
-MARKER = MARKER_START + '<div id="prisma-answer-marker" data-prisma-by="drgmb" data-sig="ZHJnbWI=" style="display:none"></div>' + MARKER_END
+# The back must look exactly as its template made it: besides telling the front block (FrontSide) to
+# step aside, the marker undoes what the front left on the shared #qa element (text size, speech…).
+MARKER = (
+    MARKER_START
+    + '<div id="prisma-answer-marker" data-prisma-by="drgmb" data-sig="ZHJnbWI=" style="display:none"></div>'
+    + _RESET
+    + MARKER_END
+)
 
 _BLOCK_RE = re.compile(r"<!--prisma:start[^>]*-->.*?<!--prisma:end[^>]*-->", re.S)
 _MARKER_RE = re.compile(r"<!--prisma:marker-start[^>]*-->.*?<!--prisma:marker-end[^>]*-->", re.S)
 
 
-def _read(name: str) -> str:
-    with open(os.path.join(_WEB, name), encoding="utf-8") as fh:
-        return fh.read()
-
-
-def build_block(cfg: Dict[str, Any], features: Dict[str, bool], side: str, text_size: int = 100) -> str:
+def build_block(cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100) -> str:
     """The same payload the runtime injector uses, frozen into template text."""
-    payload = {
-        "features": features,
-        "textSizePct": text_size,
-        "speech": cfg.get("speech", {}),
-        "layout": cfg.get("layout", {}),
-        "side": side,
-        "baked": True,
-        "skipIfTemplateHasOwn": bool(cfg.get("skipIfTemplateHasOwn", True)),
-        "author": "drgmb",
-        "sig": "ZHJnbWI=",
-    }
+    payload = injector.payload(cfg, features, text_size, baked=True)
+    css, js = injector.assets()
     block = (
         START
         + "\n<!-- Prisma by drgmb · https://github.com/drgmb · do not edit inside this block -->"
-        + "\n<style data-prisma-skip=\"1\" data-prisma-by=\"drgmb\">" + _read("prisma.css") + "</style>"
+        + "\n<style data-prisma-skip=\"1\" data-prisma-by=\"drgmb\">" + css + "</style>"
         + "\n<script data-prisma-skip=\"1\" data-prisma-by=\"drgmb\">window.__PRISMA_CFG=" + json.dumps(payload, ensure_ascii=False) + ";window.__PRISMA_BY='drgmb';</script>"
-        + "\n<script data-prisma-skip=\"1\" data-prisma-by=\"drgmb\">" + _read("prisma.js") + "</script>\n"
+        + "\n<script data-prisma-skip=\"1\" data-prisma-by=\"drgmb\">" + js + "</script>\n"
         + END
     )
     # Anki substitutes {{...}} anywhere in a template, scripts included: the block must never contain one.
@@ -73,22 +63,24 @@ def build_block(cfg: Dict[str, Any], features: Dict[str, bool], side: str, text_
 def strip(text: str) -> str:
     """Removes every Prisma block/marker and normalizes blank lines at both ends."""
     text = _BLOCK_RE.sub("", text)
-    text = _MARKER_RE.sub("", text).strip("\n")
+    text = fields.unwrap(_MARKER_RE.sub("", text)).strip("\n")
     return text + "\n" if text else ""
 
 
 def is_baked(text: str) -> bool:
-    return "<!--prisma:start" in text or "<!--prisma:marker-start" in text
+    return "<!--prisma:start" in text or "<!--prisma:marker-start" in text or "<prisma-target" in text
 
 
-def apply_to_templates(qfmt: str, afmt: str, cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100) -> Tuple[str, str]:
-    """Pure function: returns the new (front, back) template texts."""
+def apply_to_templates(qfmt: str, afmt: str, cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100,
+                       model: Dict[str, Any] | None = None, field_names: List[str] | None = None) -> Tuple[str, str]:
+    """Pure function: returns the new (front, back) template texts. The front gets the block and has
+    its main text fields wrapped in <prisma-target>, so only those are processed; the back only gets
+    the marker that keeps the front block (FrontSide) from running there."""
     qfmt, afmt = strip(qfmt).rstrip("\n"), strip(afmt).rstrip("\n")
-    if cfg.get("applyOn", {}).get("question", True):
-        qfmt = qfmt + "\n" + build_block(cfg, features, "question", text_size) + "\n"
+    names = fields.main_field_names(model or {}, qfmt, afmt, field_names)
+    qfmt = fields.wrap_template(qfmt, names)
+    qfmt = qfmt + "\n" + build_block(cfg, features, text_size) + "\n"
     afmt = MARKER + "\n" + afmt
-    if cfg.get("applyOn", {}).get("answer", False):
-        afmt = afmt + "\n" + build_block(cfg, features, "answer", text_size) + "\n"
     return qfmt, afmt
 
 
@@ -98,15 +90,23 @@ def _model(name: str):
 
 
 def bake(name: str, cfg: Dict[str, Any]) -> bool:
+    """Writes/refreshes the block. Returns True only when a template actually changed, so an
+    unchanged note type is not rewritten (and re-synced) on every save."""
     model = _model(name)
     if not model:
         return False
     _, features = config.resolve_model(cfg, name)
     text_size = config.resolve_text_size(cfg, name)
+    changed = False
     for tmpl in model["tmpls"]:
-        tmpl["qfmt"], tmpl["afmt"] = apply_to_templates(tmpl["qfmt"], tmpl["afmt"], cfg, features, text_size)
-    mw.col.models.update_dict(model)
-    return True
+        qfmt, afmt = apply_to_templates(tmpl["qfmt"], tmpl["afmt"], cfg, features, text_size,
+                                        model, config.resolve_fields(cfg, name))
+        if (qfmt, afmt) != (tmpl["qfmt"], tmpl["afmt"]):
+            tmpl["qfmt"], tmpl["afmt"] = qfmt, afmt
+            changed = True
+    if changed:
+        mw.col.models.update_dict(model)
+    return changed
 
 
 def unbake(name: str) -> bool:
@@ -126,9 +126,13 @@ def unbake(name: str) -> bool:
 
 def sync(cfg: Dict[str, Any]) -> Tuple[List[str], List[str]]:
     """Make the collection match the config: bake where `baked` is set, strip everywhere else.
-    Returns (baked_names, removed_names)."""
+    Returns (names whose templates were written, names the block was removed from)."""
     baked, removed = [], []
-    wanted = {name for name, entry in cfg.get("models", {}).items() if entry.get("baked")}
+    # a note type that is baked but not enabled gets no block: "Enabled" rules on every platform
+    wanted = {
+        name for name, entry in cfg.get("models", {}).items()
+        if entry.get("baked") and config.resolve_model(cfg, name)[0]
+    }
     for nt in mw.col.models.all_names_and_ids():
         if nt.name in wanted:
             if bake(nt.name, cfg):

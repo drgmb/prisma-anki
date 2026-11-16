@@ -8,5 +8,9 @@
 }
 .kw-hidden { visibility: hidden; }
 
+/* main-field wrapper: invisible to the layout until the random layout gives it a box */
+prisma-target, prisma-skip { display: contents; }
+prisma-target[data-prisma-styled] { display: block; }
+
 /* drgmb */
 [data-prisma-by="drgmb"] { --prisma-author: "drgmb"; }

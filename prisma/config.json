@@ -1,10 +1,6 @@
 {
   "_author": "drgmb · https://github.com/drgmb",
   "enabled": true,
-  "applyOn": {
-    "question": true,
-    "answer": false
-  },
   "applyIn": {
     "review": true,
     "preview": true,
@@ -24,8 +20,8 @@
     "lang": "en-US",
     "voice": "Samantha",
     "delayMs": 350,
-    "answerRead": "full",
-    "blankWord": "blank"
+    "blankWord": "blank",
+    "answerRead": "off"
   },
   "text": {
     "sizePct": 100

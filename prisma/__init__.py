@@ -16,7 +16,7 @@ from __future__ import annotations
 __author__ = "drgmb"
 __url__ = "https://github.com/drgmb"
 
-from aqt import mw
+from aqt import gui_hooks, mw
 from aqt.qt import QAction, QKeySequence
 from aqt.utils import tooltip
 
@@ -61,5 +61,45 @@ def _setup_menu() -> None:
     _apply_shortcut(config.load())
 
 
-injector.install()
-_setup_menu()
+def _on_profile_open() -> None:
+    cfg = config.load()
+    if config.follow_renames(cfg):
+        config.save(cfg)
+
+
+def _setup() -> None:
+    injector.install()
+    _setup_menu()
+    mw.addonManager.setConfigUpdatedAction(config.ADDON, config.invalidate)
+    gui_hooks.profile_did_open.append(_on_profile_open)
+    if getattr(mw, "col", None):
+        _on_profile_open()
+
+
+# Two copies of Prisma can be installed side by side (the AnkiWeb one in a numeric folder and a
+# local/dev one). Running both doubles the menu, makes the toggle shortcut ambiguous and lets each
+# copy undo the other's baked templates, so exactly one may run: every copy registers itself here
+# and, once all add-ons are loaded, the preferred one (a non-numeric folder, i.e. the dev copy,
+# first) sets itself up.
+_COPIES = "_prisma_copies"
+
+
+def _start_preferred() -> None:
+    copies = getattr(mw, _COPIES, None)
+    if not copies:
+        return
+    setattr(mw, _COPIES, [])
+    name, setup = sorted(copies, key=lambda c: (c[0].isdigit(), c[0]))[0]
+    skipped = [n for n, _ in copies if n != name]
+    if skipped:
+        print(f"Prisma: several copies installed; using '{name}', ignoring {skipped}")
+    setup()
+
+
+if not hasattr(mw, _COPIES):
+    setattr(mw, _COPIES, [])
+    if hasattr(gui_hooks, "main_window_did_init"):
+        gui_hooks.main_window_did_init.append(_start_preferred)
+    else:
+        mw.progress.single_shot(0, _start_preferred, False)
+getattr(mw, _COPIES).append((config.ADDON, _setup))
