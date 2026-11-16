@@ -24,6 +24,7 @@
     "lang": "en-US",
     "voice": "Samantha",
     "delayMs": 350,
+    "answerRead": "full",
     "blankWord": "blank"
   },
   "text": {

@@ -200,12 +200,13 @@
   }
 
   // ------------------------------------------------------------ 6. speech / karaoke / reveal
-  function buildUtteranceText(spans) {
+  function buildUtteranceText(spans, groups) {
     var starts = [], text = "";
     spans.forEach(function (s, i) {
       var w = s.textContent;
       if (w === "[...]") w = SPEECH.blankWord || "blank";
-      if (i) text += " ";
+      // a pause between separate answers (cloze mode): punctuation makes the synthesizer breathe
+      if (i) text += groups && groups[i] !== groups[i - 1] ? ". " : " ";
       starts.push(text.length);
       text += w;
     });
@@ -230,9 +231,41 @@
     return voices.find(function (v) { return (v.lang || "").replace("_", "-").toLowerCase() === want; }) || null;
   }
 
-  function speak(spans) {
-    var built = buildUtteranceText(spans);
-    function revealAll() { spans.forEach(function (s) { s.classList.remove("kw-active", "kw-hidden"); }); }
+  /**
+   * What to read on the back (SPEECH.answerRead): "full" re-reads the whole card; "cloze" reads only
+   * the revealed cloze answers (falls back to the text after the answer divider for non-cloze cards).
+   * Returns { spans, groups } — groups[i] tells which cloze/answer a span belongs to.
+   */
+  function pickSpoken(all) {
+    var mode = SPEECH.answerRead === "cloze" ? "cloze" : "full";
+    if (cfg.side !== "answer" || mode === "full") return { spans: all, groups: null };
+
+    var clozes = Array.prototype.slice.call(root.querySelectorAll(".cloze"));
+    var picked = [], groups = [];
+    if (clozes.length) {
+      all.forEach(function (s) {
+        for (var i = 0; i < clozes.length; i++) {
+          if (clozes[i].contains(s)) { picked.push(s); groups.push(i); return; }
+        }
+      });
+    } else {
+      var hr = document.getElementById("answer");
+      if (hr) {
+        all.forEach(function (s) {
+          if (hr.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) { picked.push(s); groups.push(0); }
+        });
+      }
+    }
+    return picked.length ? { spans: picked, groups: groups } : { spans: all, groups: null };
+  }
+
+  function speak(all) {
+    var sel = pickSpoken(all);
+    var spans = sel.spans;
+    // words that are not read must not stay hidden by the progressive reveal
+    if (spans !== all) all.forEach(function (s) { if (spans.indexOf(s) < 0) s.classList.remove("kw-hidden"); });
+    var built = buildUtteranceText(spans, sel.groups);
+    function revealAll() { all.forEach(function (s) { s.classList.remove("kw-active", "kw-hidden"); }); }
 
     var utt = new SpeechSynthesisUtterance(built.text);
     utt.lang = SPEECH.lang || "en-US";

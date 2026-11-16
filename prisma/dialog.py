@@ -155,6 +155,12 @@ class SettingsDialog(QDialog):
         self.le_voice = QLineEdit(s.get("voice", ""))
         self.le_voice.setPlaceholderText("empty = first voice for the language")
         form.addRow("Voice name:", self.le_voice)
+        self.cmb_answer = QComboBox()
+        self.cmb_answer.addItem("Re-read the whole card", "full")
+        self.cmb_answer.addItem("Read only the cloze answer(s)", "cloze")
+        self.cmb_answer.setCurrentIndex(1 if s.get("answerRead") == "cloze" else 0)
+        form.addRow("On the back (answer):", self.cmb_answer)
+        form.addRow(_muted("The front is always read in full. On cloze cards, \"only the cloze answer\" reads just the revealed words; on other cards it reads only what comes after the answer divider. Needs \"Apply to the back\" and Read aloud on."))
         self.le_blank = QLineEdit(s.get("blankWord", "blank"))
         form.addRow("How to read a cloze [...]:", self.le_blank)
 
@@ -290,6 +296,7 @@ class SettingsDialog(QDialog):
             "lang": self.le_lang.text().strip() or "en-US",
             "voice": self.le_voice.text().strip(),
             "blankWord": self.le_blank.text().strip() or "blank",
+            "answerRead": self.cmb_answer.currentData(),
             "delayMs": self.sp_delay.value(),
         })
         cfg["text"] = {"sizePct": self.sp_text.value()}

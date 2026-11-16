@@ -47,7 +47,7 @@ The block sits between `<!--prisma:start-->` and `<!--prisma:end-->` at the end 
   - Enable/disable the add-on; apply to the front and/or the back.
   - Where to apply: reviewer, card previewer, template editor.
   - Global default for each feature, and the text size in percent.
-  - Speech: speed, pitch, language (`en-US`, `pt-BR`…), voice name, how to read a cloze `[...]`, initial delay.
+  - Speech: speed, pitch, language (`en-US`, `pt-BR`…), voice name, how to read a cloze `[...]`, initial delay, and **what to read on the back** — re-read the whole card, or only the cloze answer(s).
   - Shortcut to toggle the add-on during review (default `Ctrl+Shift+L`; it is not shown in the menu).
 - **Note types**
   - An "Enabled" box per note type, a name filter, and buttons to check/uncheck the visible rows.
