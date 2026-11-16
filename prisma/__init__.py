@@ -10,7 +10,7 @@ Applies, to any note type you choose and without touching templates:
 
 Modules: config (load/save), injector (render hook), dialog (settings window).
 Menu: Tools → "Prisma…". Toggle on/off: shortcut only (default Ctrl+Shift+L).
-Read again: Ctrl+Shift+A (the cloze answer) and Ctrl+Shift+E (the whole card with the answer).
+Read again (keys handled inside the card, see prisma.js): Q = the cloze answer, W = the whole card.
 """
 from __future__ import annotations
 
@@ -25,23 +25,11 @@ from . import config, injector
 from .dialog import SettingsDialog
 
 _toggle_action: QAction | None = None
-_replay_actions: dict = {}  # config key → QAction
 
 
 def _apply_shortcut(cfg: dict) -> None:
     if _toggle_action is not None:
         _toggle_action.setShortcut(QKeySequence(cfg.get("toggleShortcut") or ""))
-    for key, action in _replay_actions.items():
-        action.setShortcut(QKeySequence(cfg.get(key) or ""))
-
-
-def replay(mode: str) -> None:
-    """Read again what is on screen: mode "cloze" = only the cloze answer(s), "full" = the whole card."""
-    try:
-        if mw.state == "review":
-            mw.web.eval("window.__PRISMA_REPLAY&&window.__PRISMA_REPLAY('%s');" % mode)
-    except Exception:
-        pass
 
 
 def _on_saved(cfg: dict) -> None:
@@ -71,13 +59,6 @@ def _setup_menu() -> None:
     _toggle_action = QAction("Prisma: toggle", mw)
     _toggle_action.triggered.connect(toggle_enabled)
     mw.addAction(_toggle_action)
-    # read again on demand (reviewer only): the cloze answer(s), or the whole card with the answer
-    for key, label, mode in (("replayAnswerShortcut", "Prisma: read the answer again", "cloze"),
-                             ("replayCardShortcut", "Prisma: read the whole card again", "full")):
-        action = QAction(label, mw)
-        action.triggered.connect(lambda _=False, m=mode: replay(m))
-        mw.addAction(action)
-        _replay_actions[key] = action
     _apply_shortcut(config.load())
 
 

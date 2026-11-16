@@ -33,6 +33,7 @@ _SCRIPT = '<script data-prisma-skip="1" data-prisma-by="drgmb">'
 _RESET = (
     _SCRIPT
     + "(function(){ if(window.speechSynthesis)speechSynthesis.cancel(); window.__PRISMA_REPLAY=null;"
+    + "if(window.__PRISMA_KEYS){ document.removeEventListener('keydown',window.__PRISMA_KEYS); window.__PRISMA_KEYS=null; }"
     + "var s=window.__PRISMA_STATE;window.__PRISMA_STATE=null;"
     + "if(s&&s.stop){ try{ s.stop(); }catch(e){ } }"
     + "var props=['maxWidth','marginLeft','marginRight','textAlign','wordSpacing','letterSpacing','paddingLeft','fontSize'];"
@@ -70,6 +71,11 @@ def payload(cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100
         "textSizePct": text_size,
         "speech": cfg.get("speech", {}),
         "layout": cfg.get("layout", {}),
+        "keys": {  # read again, from inside the card (works wherever the card runs)
+            "answer": cfg.get("keyReplayAnswer", ""),
+            "card": cfg.get("keyReplayCard", ""),
+            "buttons": bool(cfg.get("replayButtons", False)),
+        },
         "side": side,  # the front gets everything; the back only gets reading aloud (see answerRead)
         "skipIfTemplateHasOwn": bool(cfg.get("skipIfTemplateHasOwn", True)),
         "author": "drgmb",

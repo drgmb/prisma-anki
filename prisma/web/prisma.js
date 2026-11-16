@@ -61,7 +61,7 @@
   // on the back the speech starts by itself only when speech.answerRead asks for it; otherwise the block
   // just stands by for the replay shortcuts
   var autoRead = !backOnly || SPEECH.answerRead === "full" || SPEECH.answerRead === "cloze";
-  if (on.speak) window.__PRISMA_REPLAY = replay; // called by the desktop shortcuts
+  if (on.speak) { window.__PRISMA_REPLAY = replay; installKeys(); addButtons(); } // read again: keys and buttons inside the card
 
   var needsWords = on.speak || on.bionic || on.beeline || on.karaoke || on.reveal;
   if (!autoRead) needsWords = false;
@@ -83,6 +83,8 @@
 
   function cleanup() {
     window.__PRISMA_REPLAY = null;
+    if (window.__PRISMA_KEYS) { document.removeEventListener("keydown", window.__PRISMA_KEYS); window.__PRISMA_KEYS = null; }
+    Array.prototype.forEach.call(document.querySelectorAll(".prisma-replay"), function (b) { b.parentNode.removeChild(b); });
     var prev = window.__PRISMA_STATE;
     window.__PRISMA_STATE = null;
     if (prev && typeof prev.stop === "function") { try { prev.stop(); } catch (e) { /* ignore */ } }
@@ -602,6 +604,60 @@
     if (!spans.length) spans = wrapWords(findTargets()); // the back with no automatic reading: words not wrapped yet
     spans.forEach(function (s) { s.classList.remove("kw-active", "kw-hidden"); });
     if (spans.length) speak(spans, mode === "cloze" ? "cloze" : "full");
+  }
+
+  // ------------------------------------------------------------ read again: keys and buttons
+  /** "Shift + Q" → function(event) telling whether the event is that key (same idea as AnKing's shortcutMatcher). */
+  function keyMatcher(shortcut) {
+    var parts = String(shortcut || "").toLowerCase().split("+").map(function (p) { return p.trim(); }).filter(Boolean);
+    if (!parts.length) return function () { return false; };
+    var main = parts[parts.length - 1];
+    var ctrl = parts.indexOf("ctrl") >= 0 || parts.indexOf("cmd") >= 0;
+    var shift = parts.indexOf("shift") >= 0, alt = parts.indexOf("alt") >= 0;
+    if (main === "ctrl" || main === "cmd" || main === "shift" || main === "alt") return function () { return false; };
+    if (main === "space") main = " ";
+    return function (e) {
+      if (!!(e.ctrlKey || e.metaKey) !== ctrl || !!e.shiftKey !== shift || !!e.altKey !== alt) return false;
+      var k = String(e.key || "").toLowerCase();
+      if (k === main) return true;
+      if (/^[a-z]$/.test(main)) return e.code === "Key" + main.toUpperCase(); // layouts / Alt changing the letter
+      if (/^\d$/.test(main)) return e.code === "Digit" + main || e.code === "Numpad" + main;
+      return false;
+    };
+  }
+
+  function installKeys() {
+    var K = cfg.keys || {};
+    var isAnswer = keyMatcher(K.answer), isCard = keyMatcher(K.card);
+    function onKey(e) {
+      var t = e.target;
+      if (e.repeat || (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))) return;
+      if (isAnswer(e)) replay("cloze");
+      else if (isCard(e)) replay("full");
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    document.addEventListener("keydown", onKey);
+    window.__PRISMA_KEYS = onKey;
+  }
+
+  function addButtons() {
+    var K = cfg.keys || {};
+    if (!K.buttons) return;
+    var bar = document.createElement("div");
+    bar.className = "prisma-replay";
+    bar.setAttribute("data-prisma-skip", "1");
+    (backOnly ? [["\uD83D\uDD0A Answer", "cloze", K.answer], ["\uD83D\uDD0A Card", "full", K.card]]
+              : [["\uD83D\uDD0A Read", "full", K.card]]).forEach(function (b) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = b[0];
+      if (b[2]) btn.title = "Shortcut: " + b[2];
+      btn.addEventListener("click", function () { replay(b[1]); });
+      bar.appendChild(btn);
+    });
+    root.appendChild(bar);
   }
 
   // ------------------------------------------------------------ 7. run

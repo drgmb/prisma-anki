@@ -14,3 +14,7 @@ prisma-target[data-prisma-styled] { display: block; }
 
 /* drgmb */
 [data-prisma-by="drgmb"] { --prisma-author: "drgmb"; }
+
+.prisma-replay { margin-top: 1em; text-align: center; }
+.prisma-replay button { font-size: .8em; margin: 0 .3em; padding: .25em .7em; border-radius: .6em; opacity: .75; cursor: pointer; }
+.prisma-replay button:hover { opacity: 1; }

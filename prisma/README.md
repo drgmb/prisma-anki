@@ -65,7 +65,7 @@ Prisma works from the note type's templates, so it adapts to customized note typ
 - Words you colored by hand in a card keep their color.
 - If a note type's template already ships these features (it defines `LEITURA_CONFIG`), the add-on does not apply on top. This can be turned off.
 - Switching cards or leaving the reviewer stops any speech in progress.
-- **Read again, on demand** (reviewer, Read aloud on): `Ctrl+Shift+A` reads the answer again (the cloze answer(s)); `Ctrl+Shift+E` reads the whole card together with the answer. Both shortcuts can be changed in the settings window.
+- **Read again, on demand** (Read aloud on): press `Q` to read the answer again (the cloze answer(s)) or `W` to read the whole card together with the answer. The keys work inside the card, so they also work in baked note types (e.g. a keyboard on iPad); optional on-card buttons cover touch screens. Change the keys or turn the buttons on in the settings window.
 - The gradient is recomputed whenever the card's lines move: window resize, late images, MathJax, opened hints.
 - Cloze deletions keep the color the template gives them.
 - MathJax formulas (`\( … \)`, `\[ … \]`) are left untouched.

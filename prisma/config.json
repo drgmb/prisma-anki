@@ -39,7 +39,8 @@
   "skipIfTemplateHasOwn": true,
   "defaultModelEnabled": false,
   "toggleShortcut": "Ctrl+Shift+L",
-  "replayAnswerShortcut": "Ctrl+Shift+A",
-  "replayCardShortcut": "Ctrl+Shift+E",
+  "keyReplayAnswer": "Q",
+  "keyReplayCard": "W",
+  "replayButtons": false,
   "models": {}
 }

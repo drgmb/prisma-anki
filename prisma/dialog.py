@@ -110,12 +110,15 @@ class SettingsDialog(QDialog):
         self.le_shortcut.setPlaceholderText("e.g. Ctrl+Shift+L")
         form.addRow("Toggle shortcut (not shown in the menu):", self.le_shortcut)
 
-        self.le_replay_answer = QLineEdit(cfg.get("replayAnswerShortcut", ""))
-        self.le_replay_answer.setPlaceholderText("e.g. Ctrl+Shift+A")
-        form.addRow("Shortcut: read the answer again:", self.le_replay_answer)
-        self.le_replay_card = QLineEdit(cfg.get("replayCardShortcut", ""))
-        self.le_replay_card.setPlaceholderText("e.g. Ctrl+Shift+E")
-        form.addRow("Shortcut: read the whole card again (with the answer):", self.le_replay_card)
+        self.le_replay_answer = QLineEdit(cfg.get("keyReplayAnswer", ""))
+        self.le_replay_answer.setPlaceholderText("e.g. Q or Shift + Q")
+        form.addRow("Key: read the answer again (in the card):", self.le_replay_answer)
+        self.le_replay_card = QLineEdit(cfg.get("keyReplayCard", ""))
+        self.le_replay_card.setPlaceholderText("e.g. W or Shift + W")
+        form.addRow("Key: read the whole card again, with the answer:", self.le_replay_card)
+        self.cb_replay_buttons = QCheckBox("Show read-again buttons in the card (useful on mobile)")
+        self.cb_replay_buttons.setChecked(bool(cfg.get("replayButtons", False)))
+        form.addRow(self.cb_replay_buttons)
         return box
 
     def _group_features(self) -> QGroupBox:
@@ -309,8 +312,9 @@ class SettingsDialog(QDialog):
         cfg["applyIn"] = {k: cb.isChecked() for k, cb in self.cb_where.items()}
         cfg["skipIfTemplateHasOwn"] = self.cb_skip.isChecked()
         cfg["toggleShortcut"] = self.le_shortcut.text().strip()
-        cfg["replayAnswerShortcut"] = self.le_replay_answer.text().strip()
-        cfg["replayCardShortcut"] = self.le_replay_card.text().strip()
+        cfg["keyReplayAnswer"] = self.le_replay_answer.text().strip()
+        cfg["keyReplayCard"] = self.le_replay_card.text().strip()
+        cfg["replayButtons"] = self.cb_replay_buttons.isChecked()
         cfg["features"] = {k: cb.isChecked() for k, cb in self.cb_feature.items()}
         cfg["speech"].update({
             "rate": round(self.sp_rate.value(), 2),
