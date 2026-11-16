@@ -149,6 +149,19 @@ class SettingsDialog(QDialog):
         self.cb_replay_buttons = QCheckBox("Show read-again buttons in the card (useful on mobile)")
         self.cb_replay_buttons.setChecked(bool(cfg.get("replayButtons", False)))
         form.addRow(self.cb_replay_buttons)
+
+        # AnkiMobile / AnkiDroid: bind "User action N" (gestures, buttons, game controllers) to these
+        self.cmb_ua = {}
+        for key, label in (("userActionAnswer", "Mobile \"User action\" that reads the answer again:"),
+                           ("userActionCard", "Mobile \"User action\" that reads the whole card again:")):
+            combo = QComboBox()
+            combo.addItem("Off", "")
+            for n in range(1, 10):
+                combo.addItem("User action %d" % n, "userJs%d" % n)
+            combo.setCurrentIndex(max(combo.findData(cfg.get(key, "")), 0))
+            self.cmb_ua[key] = combo
+            form.addRow(label, combo)
+        form.addRow(_muted("Then, in AnkiMobile / AnkiDroid settings, assign a gesture, button or controller to that User action. Needs the note type baked and saved; skipped if the template already defines that action."))
         return box
 
     def _group_features(self) -> QGroupBox:
@@ -353,6 +366,8 @@ class SettingsDialog(QDialog):
         cfg["keyReplayAnswer"] = self.le_replay_answer.text().strip()
         cfg["keyReplayCard"] = self.le_replay_card.text().strip()
         cfg["replayButtons"] = self.cb_replay_buttons.isChecked()
+        for key, combo in self.cmb_ua.items():
+            cfg[key] = combo.currentData() or ""
         cfg["features"] = {k: cb.isChecked() for k, cb in self.cb_feature.items()}
         cfg["speech"].update({
             "rate": round(self.sp_rate.value(), 2),

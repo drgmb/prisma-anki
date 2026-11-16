@@ -61,7 +61,7 @@
   // on the back the speech starts by itself only when speech.answerRead asks for it; otherwise the block
   // just stands by for the replay shortcuts
   var autoRead = !backOnly || SPEECH.answerRead === "full" || SPEECH.answerRead === "cloze";
-  if (on.speak) { window.__PRISMA_REPLAY = replay; installKeys(); addButtons(); } // read again: keys and buttons inside the card
+  if (on.speak) { window.__PRISMA_REPLAY = replay; installKeys(); addButtons(); bindUserActions(); } // read again: keys and buttons inside the card
 
   var needsWords = on.speak || on.bionic || on.beeline || on.karaoke || on.reveal;
   if (!autoRead) needsWords = false;
@@ -83,6 +83,8 @@
 
   function cleanup() {
     window.__PRISMA_REPLAY = null;
+    (window.__PRISMA_UA || []).forEach(function (n) { if (window[n] && window[n].__prisma) window[n] = undefined; });
+    window.__PRISMA_UA = null;
     if (window.__PRISMA_KEYS) { document.removeEventListener("keydown", window.__PRISMA_KEYS); window.__PRISMA_KEYS = null; }
     Array.prototype.forEach.call(document.querySelectorAll(".prisma-replay"), function (b) { b.parentNode.removeChild(b); });
     var prev = window.__PRISMA_STATE;
@@ -640,6 +642,25 @@
     }
     document.addEventListener("keydown", onKey);
     window.__PRISMA_KEYS = onKey;
+  }
+
+  /**
+   * AnkiMobile / AnkiDroid call the global functions userJs1…userJs9 ("User action 1…9", bound to gestures,
+   * buttons or game controllers). Binds the two read-again actions to the ones chosen in the settings,
+   * unless the template already defines that one itself.
+   */
+  function bindUserActions() {
+    var K = cfg.keys || {}, bound = [];
+    [[K.userAnswer, "cloze"], [K.userCard, "full"]].forEach(function (a) {
+      var name = a[0], mode = a[1];
+      if (!/^userJs[1-9]$/.test(name || "")) return;
+      if (typeof window[name] === "function" && !window[name].__prisma) return; // not ours: leave it alone
+      var fn = function () { replay(mode); };
+      fn.__prisma = true;
+      window[name] = fn;
+      bound.push(name);
+    });
+    window.__PRISMA_UA = bound;
   }
 
   function addButtons() {

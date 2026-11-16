@@ -17,6 +17,7 @@ Prefer the **Tools → Prisma…** window, which covers every option below.
 | `models[name].fields` | field names Prisma works on, e.g. `["Text"]`; absent = automatic (every field the front shows; tags, timers and buttons excluded) |
 | `models` | per note type: `{"enabled": true, "baked": true, "features": {"beeline": false}}` — `features` overrides only the keys present; `baked` writes the block into the templates (works on mobile) |
 | `keyReplayAnswer` / `keyReplayCard` | keys, handled inside the card (so they also work in baked note types on mobile with a keyboard), to read again the cloze answer(s) / the whole card with the answer: `Q`, `Shift + Q`, `Ctrl + 1`…; empty = off. Need Read aloud on |
+| `userActionAnswer` / `userActionCard` | which mobile "User action" (`userJs1`…`userJs9`) reads the answer / the whole card again; empty = off. Assign a gesture, button or controller to it in AnkiMobile (Settings → Gestures/Controls) or AnkiDroid (Settings → Controls → User actions) |
 | `replayButtons` | show two small read-again buttons in the card (useful on touch screens) |
 | `toggleShortcut` | shortcut to toggle the add-on on/off (there is no menu item for it) |
 

@@ -42,5 +42,7 @@
   "keyReplayAnswer": "Q",
   "keyReplayCard": "W",
   "replayButtons": false,
+  "userActionAnswer": "userJs1",
+  "userActionCard": "userJs2",
   "models": {}
 }

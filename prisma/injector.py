@@ -33,6 +33,7 @@ _SCRIPT = '<script data-prisma-skip="1" data-prisma-by="drgmb">'
 _RESET = (
     _SCRIPT
     + "(function(){ if(window.speechSynthesis)speechSynthesis.cancel(); window.__PRISMA_REPLAY=null;"
+    + "(window.__PRISMA_UA||[]).forEach(function(n){ if(window[n]&&window[n].__prisma)window[n]=undefined; }); window.__PRISMA_UA=null;"
     + "if(window.__PRISMA_KEYS){ document.removeEventListener('keydown',window.__PRISMA_KEYS); window.__PRISMA_KEYS=null; }"
     + "var s=window.__PRISMA_STATE;window.__PRISMA_STATE=null;"
     + "if(s&&s.stop){ try{ s.stop(); }catch(e){ } }"
@@ -75,6 +76,8 @@ def payload(cfg: Dict[str, Any], features: Dict[str, bool], text_size: int = 100
             "answer": cfg.get("keyReplayAnswer", ""),
             "card": cfg.get("keyReplayCard", ""),
             "buttons": bool(cfg.get("replayButtons", False)),
+            "userAnswer": cfg.get("userActionAnswer", ""),  # AnkiMobile / AnkiDroid "User action N" → userJsN
+            "userCard": cfg.get("userActionCard", ""),
         },
         "side": side,  # the front gets everything; the back only gets reading aloud (see answerRead)
         "skipIfTemplateHasOwn": bool(cfg.get("skipIfTemplateHasOwn", True)),
