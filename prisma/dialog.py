@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Tuple
 from aqt import mw
 from aqt.qt import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGroupBox,
-    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton, QSpinBox, QTableWidget,
-    QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget, Qt,
+    QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton, QScrollArea, QSpinBox,
+    QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget, Qt,
 )
 from aqt.utils import showWarning, tooltip
 
@@ -31,6 +31,16 @@ def _centered(widget: QWidget) -> QWidget:
     return cell
 
 
+def _form(box: QWidget) -> QFormLayout:
+    """Left-aligned form that doesn't stretch its rows across a wide window."""
+    form = QFormLayout(box)
+    form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+    form.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+    form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
+    return form
+
+
 def _muted(text: str) -> QLabel:
     label = QLabel(text)
     label.setStyleSheet("color: gray")
@@ -42,7 +52,7 @@ class SettingsDialog(QDialog):
     def __init__(self, on_saved=None, parent=None):
         super().__init__(parent or mw)
         self.setWindowTitle("Prisma — Settings · by drgmb")
-        self.resize(940, 640)
+        self._fit_to_screen()
         self.cfg = config.load()
         config.follow_renames(self.cfg)
         self.on_saved = on_saved
@@ -51,11 +61,21 @@ class SettingsDialog(QDialog):
         self.rows: List[Tuple[str, QCheckBox, QCheckBox, QSpinBox, QLineEdit, Dict[str, QComboBox]]] = []
         self._build()
 
+    def _fit_to_screen(self) -> None:
+        """Opens at a comfortable size that always fits on the screen (the buttons stay reachable)."""
+        try:
+            area = (self.screen() or mw.screen()).availableGeometry()
+            width, height = min(1060, int(area.width() * 0.92)), min(720, int(area.height() * 0.85))
+        except Exception:
+            width, height = 900, 600
+        self.setMinimumSize(560, 420)
+        self.resize(width, height)
+
     # ------------------------------------------------------------ layout
     def _build(self) -> None:
         root = QVBoxLayout(self)
         tabs = QTabWidget()
-        tabs.addTab(self._tab_general(), "General")
+        tabs.addTab(self._scrolled(self._tab_general()), "General")
         tabs.addTab(self._tab_models(), "Note types")
         root.addWidget(tabs)
 
@@ -71,6 +91,16 @@ class SettingsDialog(QDialog):
         root.addWidget(credit)
         root.addWidget(buttons)
 
+    @staticmethod
+    def _scrolled(page: QWidget) -> QScrollArea:
+        """The General tab is taller than many screens: it scrolls instead of stretching the window."""
+        area = QScrollArea()
+        area.setWidgetResizable(True)
+        area.setFrameShape(QFrame.Shape.NoFrame)
+        area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        area.setWidget(page)
+        return area
+
     def _tab_general(self) -> QWidget:
         page = QWidget()
         col = QVBoxLayout(page)
@@ -84,7 +114,7 @@ class SettingsDialog(QDialog):
     def _group_activation(self) -> QGroupBox:
         cfg = self.cfg
         box = QGroupBox("Activation")
-        form = QFormLayout(box)
+        form = _form(box)
 
         self.cb_enabled = QCheckBox("Add-on enabled")
         self.cb_enabled.setChecked(bool(cfg["enabled"]))
@@ -123,7 +153,7 @@ class SettingsDialog(QDialog):
 
     def _group_features(self) -> QGroupBox:
         box = QGroupBox("Features (global defaults — each note type can override them)")
-        form = QFormLayout(box)
+        form = _form(box)
         self.cb_feature = {}
         for key, label in FEATURES:
             cb = QCheckBox(label)
@@ -135,7 +165,7 @@ class SettingsDialog(QDialog):
 
     def _group_text(self) -> QGroupBox:
         box = QGroupBox("Text")
-        form = QFormLayout(box)
+        form = _form(box)
         self.sp_text = QSpinBox()
         self.sp_text.setRange(50, 300)
         self.sp_text.setSingleStep(5)
@@ -148,7 +178,7 @@ class SettingsDialog(QDialog):
     def _group_speech(self) -> QGroupBox:
         s = self.cfg["speech"]
         box = QGroupBox("Speech")
-        form = QFormLayout(box)
+        form = _form(box)
 
         self.sp_rate = self._double_spin(0.5, 2.0, 0.05, float(s["rate"]), "×")
         form.addRow("Speed (0.5× slow · 1× normal · 2× fast):", self.sp_rate)
@@ -215,13 +245,21 @@ class SettingsDialog(QDialog):
         return page
 
     def _models_table(self) -> QTableWidget:
-        headers = ["Note type", "Enabled", "Bake (mobile)", "Text size", "Main field(s)"] + [label.split(" ", 1)[1] for _, label in FEATURES]
+        # feature columns show only the icon (full name on hover): the table fits without a horizontal scroll
+        headers = ["Note type", "On", "Bake", "Text size", "Main field(s)"] + [label.split(" ", 1)[0] for _, label in FEATURES]
         table = QTableWidget(len(self.model_names), len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.verticalHeader().setVisible(False)
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        tips = ["Note type", "Enabled", "Bake: write into the templates so it also works on AnkiDroid / AnkiMobile",
+                "Text size (0 = global)", "Main field(s): empty = auto"] + [label for _, label in FEATURES]
+        for c, tip in enumerate(tips):
+            table.horizontalHeaderItem(c).setToolTip(tip)
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for c in range(1, len(headers)):
-            table.horizontalHeader().setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
+        header.setMinimumSectionSize(40)
+        table.setColumnWidth(0, 260)
 
         models_cfg = self.cfg.get("models", {})
         default_enabled = bool(self.cfg["defaultModelEnabled"])
